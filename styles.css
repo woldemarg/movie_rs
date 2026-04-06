@@ -1,0 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --bg-1: #0b1020;
+  --bg-2: #121a32;
+  --glass: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.16);
+  --text: #e8efff;
+  --muted: #a8b6d8;
+  --accent: #6f8cff;
+  --accent-2: #3dd9c4;
+}
+
+html,
+body,
+[class*="css"] {
+  font-family: "Manrope", sans-serif;
+}
+
+.stApp {
+  background:
+    radial-gradient(1200px 500px at 8% 0%, rgba(111, 140, 255, 0.24), transparent 60%),
+    radial-gradient(900px 450px at 95% 10%, rgba(61, 217, 196, 0.16), transparent 55%),
+    linear-gradient(160deg, var(--bg-1), var(--bg-2));
+  color: var(--text);
+}
+
+[data-testid="stSidebar"] {
+  background: rgba(16, 24, 48, 0.7);
+  border-right: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+}
+
+[data-testid="stHeader"] {
+  background: transparent;
+}
+
+[data-testid="stAppViewContainer"] > .main {
+  padding-top: 1.2rem;
+}
+
+div[data-testid="stTextInput"] input {
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  color: var(--text);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+div[data-testid="stTextInput"] label p {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+[data-testid="stStatusWidget"] {
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(12, 19, 39, 0.72);
+}
+
+[data-testid="stSidebar"] hr,
+[data-testid="stMarkdownContainer"] hr {
+  display: none;
+}
+
+[data-testid="stMarkdownContainer"] p {
+  line-height: 1.58;
+}
+
+.mh-hero {
+  padding: 1.25rem 1.25rem 1.1rem;
+  margin-bottom: 1rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.mh-title {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.mh-subtitle {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.98rem;
+}
+
+.mh-chip-row {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mh-chip {
+  display: inline-block;
+  padding: 0.35rem 0.72rem;
+  font-size: 0.78rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(111, 140, 255, 0.16);
+}
+
