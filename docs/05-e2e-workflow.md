@@ -81,7 +81,7 @@ flowchart TB
     posters["scripts.refresh_posters<br/>актуальні постери, з TMDB_API_KEY"]
     hf[("models/embeddings/<br/>модель ембедінгів")]
     catalog[("data/movies.json<br/>data/movie_vectors.npy")]
-    evaluate["scripts.evaluate_retrieval"]
+    evaluate["scripts.evaluate_retrieval,<br/>scripts.evaluate_selection"]
 
     raw --> prep
     prep -- "каталогу немає" --> build --> catalog
@@ -181,7 +181,7 @@ flowchart TB
 | Бекенд ще запускається | поле запиту вимкнене з поясненням; сторінка підключається сама |
 | Неочікувана відповідь | тіло не того формату → «неочікуваному форматі», а не «немає зв'язку» |
 
-Поведінку справжньої моделі тести не перевіряють. Її перевірено наживо через стек Docker на `gemma4:e4b`: демо-запити (README). CI збирає обидва образи й перевіряє, що `/api/config` відповідає через nginx, але локальну модель не завантажує.
+Поведінку справжньої моделі тести не перевіряють. Її перевірено наживо через стек Docker на `gemma4:e4b`: демо-запити (README) і оцінювання параметрів ([розділ 9](09-selection-parameters.md)). CI збирає обидва образи й перевіряє, що `/api/config` відповідає через nginx, але локальну модель не завантажує.
 
 ## 5.7. Запуск
 

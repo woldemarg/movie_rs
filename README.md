@@ -65,7 +65,7 @@ flowchart TB
 | опис англійською (з перекладом) | 0,829 | 0,648 |
 | випадковий порядок | 0,005 | 0,004 |
 
-Тематичні запити українською: середня Precision@12 за жанром — 0,729. Кодування запиту разом із пошуком займає 22 мс на CPU. Опис замість назви подвоює Recall@12 — тому пошуковий запит формулює LLM. Переклад англійською дав би ще більше, але агент свідомо пише запит мовою глядача: мовні відповідності — справа багатомовної моделі ембедінгів ([розділ 3.7](docs/03-llm-and-tool-calling.md#37-обґрунтування-рішень)).
+Тематичні запити українською: середня Precision@12 за жанром — 0,729. Кодування запиту разом із пошуком займає 22 мс на CPU. Опис замість назви подвоює Recall@12 — тому пошуковий запит формулює LLM. Переклад англійською дав би ще більше, але агент свідомо пише запит мовою глядача: мовні відповідності — справа багатомовної моделі ембедінгів ([розділ 3.7](docs/03-llm-and-tool-calling.md#37-обґрунтування-рішень)). Як жанр і вік змінюють вибір — [розділ 9](docs/09-selection-parameters.md).
 
 ## Швидкий старт
 
@@ -115,9 +115,9 @@ backend/            бекенд (Python, FastAPI)
     catalog.py      каталог і семантичний пошук
   adapters/         зовнішні сервіси: llm.py, tmdb.py, embedder.py
 frontend/           вебінтерфейс: index.html, app.js, styles.css
-data/               raw/ — сирий набір (у git); movies.json + movie_vectors.npy — каталог (генерується); eval/ — бенчмарк пошуку
-docs/               специфікація (8 розділів) і знімки екрана
-scripts/            check.py — контроль якості; prepare_data, build_catalog, refresh_posters, evaluate_retrieval
+data/               raw/ — сирий набір (у git); movies.json + movie_vectors.npy — каталог (генерується); eval/ — бенчмарки пошуку й вибору
+docs/               специфікація (9 розділів) і знімки екрана
+scripts/            check.py — контроль якості; prepare_data, build_catalog, refresh_posters, evaluate_retrieval, evaluate_selection
 models/             кеш моделей (у .gitignore): embeddings/, ollama/
 compose.yaml, compose.gpu.yaml   контейнери: frontend (frontend/Dockerfile, nginx.conf), backend (backend/Dockerfile), ollama, ollama-init
 tests/              модульні, API-, архітектурні та E2E-тести (Playwright)
@@ -136,6 +136,7 @@ notebooks/          ноутбук, з якого почався проєкт (�
 6. [Оцінювання якості пошуку](docs/06-evaluation.md)
 7. [Вибір моделі ембедінгів](docs/07-embedding-model.md)
 8. [Ризики галюцинацій LLM і як їх враховано](docs/08-hallucinations.md)
+9. [Вплив параметрів глядача на вибір](docs/09-selection-parameters.md)
 
 Правила роботи з кодом (для людей і AI-агентів) — у [AGENTS.md](AGENTS.md).
 
@@ -159,6 +160,7 @@ uv run python scripts/check.py       # ruff (зокрема складність
 uv run python -m scripts.build_catalog        # ≈ 3 хв на CPU
 uv run python -m scripts.refresh_posters      # потрібен TMDB_API_KEY
 uv run python -m scripts.evaluate_retrieval   # таблиці розділу 6
+uv run python -m scripts.evaluate_selection   # розділ 9; потрібен запущений стек
 ```
 
 ## Дані й ліцензії
