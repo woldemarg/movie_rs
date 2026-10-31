@@ -9,16 +9,19 @@ const GENRES_UK = {
   "TV Movie": "Телефільм", Thriller: "Трилер", War: "Воєнний", Western: "Вестерн",
 };
 
-// Verified demo queries (README, "Демо-запити").
+// Demo queries validated live on the local model (README, "Демо-запити").
 const SUGGESTIONS = [
-  "Щось атмосферне на кшталт «Того, хто біжить по лезу»",
-  "A mind-bending thriller where nothing is what it seems",
+  "Комедійна наукова фантастика з яскравими візуальними ефектами",
+  "Пригодницький фільм про пустелю з епічними краєвидами",
+  "Щось атмосферне на кшталт «Blade Runner»",
   "Порадь страшний фільм без крові, щоб лякав атмосферою",
-  "Show me a film with breathtaking visuals of outer space",
+  "Космічна пригода з краєвидами, від яких перехоплює подих",
+  "Мрійлива романтична історія в Нью-Йорку, як «Амелі»",
+  "Історія про подорожі в часі, що змушує замислитися",
 ];
 
 const STORAGE_KEY = "movieharbor.preferences";
-const MAX_HISTORY = 20; // messages sent per request; the agent reads the last 10, the API accepts 50
+const MAX_HISTORY = 20; // messages sent per request; the agent reads the last 8, the API accepts 50
 const $ = (id) => document.getElementById(id);
 const state = { providers: [], provider: null, messages: [], busy: false };
 
@@ -65,14 +68,23 @@ function savePreferences() {
 
 async function init() {
   const preferences = loadPreferences();
-  let config;
-  try {
-    const response = await fetch("api/config");
-    config = await response.json();
-    if (!response.ok || !Array.isArray(config.providers) || !Array.isArray(config.genres)) throw new Error();
-  } catch {
-    disableAsking("Не вдалося з'єднатися з сервером MovieHarbor. Перевірте, що бекенд запущено.");
-    return;
+  let config, waiting = null;
+  for (;;) { // the frontend may be up before the backend (first start: catalogue, model)
+    try {
+      const response = await fetch("api/config");
+      config = await response.json();
+      if (response.ok && Array.isArray(config.providers) && Array.isArray(config.genres)) break;
+    } catch {
+      // not reachable yet
+    }
+    waiting ??= disableAsking("Сервер MovieHarbor ще запускається (перший запуск готує каталог і модель). Сторінка підключиться сама.");
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  if (waiting) {
+    waiting.remove();
+    $("welcome").hidden = false;
+    $("send").disabled = false;
+    $("question").readOnly = false;
   }
   state.providers = config.providers;
   const configured = config.providers.filter((p) => p.configured).map((p) => p.id);
@@ -80,9 +92,7 @@ async function init() {
     disableAsking("Жодне джерело моделі не налаштовано. Перевірте файл .env.");
     return;
   }
-  state.provider = configured.includes(preferences.provider)
-    ? preferences.provider
-    : (configured.includes("openrouter") ? "openrouter" : configured[0]);
+  state.provider = configured.includes(preferences.provider) ? preferences.provider : configured[0]; // local first
   renderSourceSwitch();
 
   const genres = [...config.genres].sort((a, b) => genreName(a).localeCompare(genreName(b), "uk"));
@@ -141,25 +151,128 @@ function setBusy(busy) {
   $("question").readOnly = busy;
 }
 
+// The trace panel: the current turn's steps and facts — what the model searched for, the shortlist
+// with its similarity, the trailer, the choice. Reference for the study; the chat stays uncluttered.
+const failed = (step) => step.outcome.startsWith("помилка");
+
+function stage(number, title, tool, ...body) {
+  return h("div", { class: "stage" },
+    h("div", { class: "stage-title" }, h("span", { class: "stage-no" }, number), title,
+      tool && h("code", {}, tool)),
+    ...body);
+}
+
+function candidateList(candidates, chosen) {
+  const top = Math.max(...candidates.map((c) => c.score), 0.01);
+  return h("ol", { class: "candidates" }, candidates.map((c, i) => {
+    const pick = chosen.indexOf(c.id);
+    return h("li", { class: pick >= 0 ? "chosen" : null },
+      h("span", { class: "rank" }, `${i + 1}`),
+      h("span", { class: "name" }, `${c.title}${c.year ? ` (${c.year})` : ""}`),
+      h("span", { class: "bar" }, h("i", { style: `width: ${Math.round((c.score / top) * 100)}%` })),
+      h("span", { class: "score" }, c.score.toFixed(2)),
+      h("span", { class: "mark" }, pick >= 0 ? `✓ ${pick + 1}` : ""));
+  }));
+}
+
+function choiceFacts(recommend, candidates) {
+  const ranks = recommend.data.accepted.map((id) => candidates.findIndex((c) => c.id === id) + 1);
+  return ranks.length
+    ? `Обрано ${ranks.length} з ${candidates.length} · місця за схожістю: ${ranks.join(", ")}`
+    : "Фільмів не обрано (запит не про кіно)";
+}
+
+function traceStages(steps) {
+  const searches = steps.filter((s) => s.tool === "search_movies" && !failed(s));
+  const trailer = steps.find((s) => s.tool === "show_trailer" && !failed(s));
+  const recommend = steps.findLast((s) => s.tool === "recommend" && !failed(s));
+  const candidates = searches.at(-1)?.data.candidates ?? [];
+  const chosen = recommend?.data.accepted ?? [];
+  const corrections = steps.filter(failed);
+  const stages = [];
+  if (searches.length) {
+    stages.push(stage("1", "Запит до пошуку", "search_movies",
+      searches.map((s) => h("p", { class: "decision" }, `«${s.arguments.query}»`))));
+  }
+  if (candidates.length) {
+    stages.push(stage("2", `Кандидати (${candidates.length})`, null, candidateList(candidates, chosen)));
+  }
+  if (trailer) {
+    stages.push(stage("3", "Трейлер", "show_trailer",
+      h("p", { class: "decision" }, `${trailer.data.title} · ${trailer.data.status === "shown" ? "показано" : "не знайдено"}`),
+      h("p", { class: "outcome" }, `«${trailer.arguments.reason}»`)));
+  }
+  if (recommend) {
+    stages.push(stage(trailer ? "4" : "3", "Вибір", "recommend",
+      h("p", { class: "decision" }, choiceFacts(recommend, candidates)),
+      recommend.data.rejected.length > 0
+        && h("p", { class: "outcome" }, `відхилено (не з пошуку): id ${recommend.data.rejected.join(", ")}`)));
+  }
+  if (corrections.length) {
+    stages.push(stage("!", "Корекції", null,
+      corrections.map((c) => h("p", { class: "outcome" }, `${c.tool}: ${c.outcome}`))));
+  }
+  return stages;
+}
+
+function traceHead(trace) {
+  const label = state.providers.find((p) => p.id === trace.provider)?.label ?? trace.provider;
+  const calls = `${trace.llm_calls} ${plural(trace.llm_calls, "звернення", "звернення", "звернень")} до LLM`;
+  return `${label} · ${trace.model} · ${calls} · ${(trace.latency_ms / 1000).toFixed(1)} с`;
+}
+
+function fillTrace(entry, question, head, steps) {
+  entry.replaceChildren(
+    h("h3", {}, `«${question.length > 90 ? `${question.slice(0, 90)}…` : question}»`),
+    h("p", { class: "trace-head" }, head),
+    ...traceStages(steps));
+}
+
+function showInPanel(entry) {
+  $("trace-empty").hidden = true;
+  $("trace-log").replaceChildren(entry); // the panel shows the current turn
+  $("trace-panel").scrollTop = 0;
+}
+
+// Parse an NDJSON response body into events as the lines arrive.
+async function* streamEvents(response) {
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += value;
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) if (line.trim()) yield JSON.parse(line);
+  }
+  if (buffer.trim()) yield JSON.parse(buffer);
+}
+
 async function ask(text, { echo = true } = {}) {
   const question = text.trim();
   if (!question || state.busy || !state.provider) return;
   if (echo) append(h("article", { class: "msg user" }, h("p", {}, question)));
   state.messages.push({ role: "user", content: question });
   setBusy(true);
+  const steps = [];
+  const trace = h("section", { class: "trace" });
+  fillTrace(trace, question, "у процесі…", steps);
+  showInPanel(trace);
+  const status = h("span", {}, "Думаю над запитом…");
   const pending = append(
     h("article", { class: "msg assistant pending", "aria-busy": "true" },
-      h("span", { class: "dots", "aria-hidden": "true" }, h("i"), h("i"), h("i")),
-      "Шукаю фільми й думаю над добіркою…"),
+      h("span", { class: "dots", "aria-hidden": "true" }, h("i"), h("i"), h("i")), status),
   );
   const fail = (message) => {
     state.messages.pop(); // keep user/assistant turns alternating; the retry sends it again
+    fillTrace(trace, question, `не завершено: ${message}`, steps);
     pending.replaceWith(renderError(message, () => ask(question, { echo: false })));
   };
   try {
     let response;
     try {
-      response = await fetch("api/recommend", {
+      response = await fetch("api/recommend/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -169,17 +282,35 @@ async function ask(text, { echo = true } = {}) {
     } catch {
       return fail("Немає зв'язку з сервером MovieHarbor.");
     }
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
       return fail(typeof data.detail === "string" ? data.detail : `Сервер повернув помилку ${response.status}.`);
     }
+    let final = null;
+    try {
+      for await (const event of streamEvents(response)) {
+        if (event.type === "step") {
+          steps.push(event);
+          fillTrace(trace, question, "у процесі…", steps);
+          status.textContent = event.tool === "search_movies" ? "Обираю найкращі фільми…" : "Майже готово…";
+        } else {
+          final = event;
+        }
+      }
+    } catch (error) {
+      return fail(error instanceof SyntaxError
+        ? "Сервер повернув відповідь у неочікуваному форматі."
+        : "Зв'язок із сервером обірвався. Спробуйте ще раз.");
+    }
+    if (final?.type === "error") return fail(final.detail);
     let answer;
     try {
-      answer = renderAnswer(data);
+      answer = renderAnswer(final);
+      fillTrace(trace, question, traceHead(final.trace), final.trace.steps);
     } catch {
       return fail("Сервер повернув відповідь у неочікуваному форматі.");
     }
-    state.messages.push(data.message);
+    state.messages.push(final.message);
     pending.replaceWith(answer);
     answer.scrollIntoView({ block: "start", behavior: "smooth" }); // read from the reply down
   } finally {
@@ -192,7 +323,6 @@ function renderAnswer(data) {
     data.reply.split(/\n{2,}/).map((paragraph) => h("p", { class: "reply" }, paragraph)),
     data.picks.length > 0 && h("div", { class: "cards" }, data.picks.map(renderCard)),
     data.trailer && renderTrailer(data.trailer),
-    renderTrace(data.trace),
   );
 }
 
@@ -238,20 +368,6 @@ function renderTrailer(trailer) {
   );
 }
 
-function renderTrace(trace) {
-  const label = state.providers.find((p) => p.id === trace.provider)?.label ?? trace.provider;
-  const calls = `${trace.llm_calls} ${plural(trace.llm_calls, "звернення", "звернення", "звернень")} до LLM`;
-  return h("details", { class: "trace" },
-    h("summary", {}, `Як це працює · ${calls} · ${(trace.latency_ms / 1000).toFixed(1)} с`),
-    h("p", {}, `Модель: ${label} · ${trace.model}`),
-    h("ol", {}, trace.steps.map((step) =>
-      h("li", {},
-        h("code", {}, step.tool),
-        step.arguments.query && h("span", { class: "arg" }, ` «${step.arguments.query}»`),
-        h("span", { class: "outcome" }, ` → ${step.outcome}`)))),
-  );
-}
-
 function renderError(message, retry) {
   return h("article", { class: "msg assistant error", role: "alert" },
     h("p", {}, message),
@@ -263,13 +379,16 @@ function renderError(message, retry) {
 }
 
 function disableAsking(message) {
-  append(renderError(message, null));
+  const notice = append(renderError(message, null));
   $("send").disabled = true;
   $("question").readOnly = true;
+  return notice;
 }
 
 function newChat() {
   state.messages = [];
+  $("trace-log").replaceChildren();
+  $("trace-empty").hidden = false;
   $("thread").replaceChildren($("welcome"));
   $("welcome").hidden = false;
   $("question").focus();
@@ -295,5 +414,9 @@ $("question").addEventListener("input", (event) => {
 });
 for (const id of ["genre", "age", "gender"]) $(id).addEventListener("change", savePreferences);
 $("new-chat").addEventListener("click", newChat);
+$("panel-toggle").addEventListener("click", (event) => {
+  const open = document.body.classList.toggle("panel-open");
+  event.currentTarget.setAttribute("aria-expanded", String(open));
+});
 
 init();
