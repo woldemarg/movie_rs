@@ -73,6 +73,7 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite; befor
 | `scripts/evaluate_retrieval.py`, `data/eval/retrieval_queries.json` | `docs/desc/06-evaluation.md` |
 | `scripts/evaluate_selection.py`, `data/eval/selection_*.json` | `docs/desc/09-selection-parameters.md` |
 | `tests/` (layers, doubles, e2e), `scripts/check.py`, `.github/workflows/ci.yml` | `docs/desc/10-testing.md` |
+| behaviour a requirement states (FR/NFR, their numbers and tests) | also `docs/desc/12-requirements.md` |
 | the embedding model (`DEFAULT_MODEL` in `backend/adapters/embedder.py`) | `docs/desc/07-embedding-model.md` |
 | grounding, argument validation, prompt guardrails, how a turn ends (`tools.py`, `prompts.py`, `agent.py`) | also `docs/desc/08-hallucinations.md` (the risk register) |
 

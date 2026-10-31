@@ -116,7 +116,7 @@ backend/            бекенд (Python, FastAPI)
   adapters/         зовнішні сервіси: llm.py, tmdb.py, embedder.py
 frontend/           вебінтерфейс: index.html, app.js, styles.css
 data/               raw/ — сирий набір (у git); movies.json + movie_vectors.npy — каталог (генерується); eval/ — бенчмарки пошуку й вибору
-docs/               специфікація (10 розділів) і знімки екрана
+docs/               специфікація (12 розділів) і знімки екрана
 scripts/            check.py — контроль якості; prepare_data, build_catalog, refresh_posters, evaluate_retrieval, evaluate_selection
 models/             кеш моделей (у .gitignore): embeddings/, ollama/
 compose.yaml, compose.gpu.yaml   контейнери: frontend (frontend/Dockerfile, nginx.conf), backend (backend/Dockerfile), ollama, ollama-init
@@ -138,6 +138,8 @@ notebooks/          ноутбук, з якого почався проєкт (�
 8. [Ризики галюцинацій LLM і як їх враховано](docs/desc/08-hallucinations.md)
 9. [Вплив параметрів користувача на вибір](docs/desc/09-selection-parameters.md)
 10. [Стратегія тестування](docs/desc/10-testing.md)
+11. [Аналогічні системи та порівняння](docs/desc/11-related-systems.md)
+12. [Вимоги до системи](docs/desc/12-requirements.md)
 
 Правила роботи з кодом (для людей і AI-агентів) — у [AGENTS.md](AGENTS.md).
 
