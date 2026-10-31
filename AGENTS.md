@@ -71,6 +71,7 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 | the request's path across modules and external services, `tests/` (layers, stubs, e2e) | `docs/05-e2e-workflow.md` |
 | `scripts/evaluate_retrieval.py`, `data/eval/` | `docs/06-evaluation.md` |
 | the embedding model (`DEFAULT_MODEL` in `backend/adapters/embedder.py`) | `docs/07-embedding-model.md` |
+| grounding, argument validation, prompt guardrails, how a turn ends (`tools.py`, `prompts.py`, `agent.py`) | also `docs/08-hallucinations.md` (the risk register) |
 
 - Every path, name and number in a doc must exist and be current. A change to the catalogue, the embedding model or the benchmark re-runs `python -m scripts.evaluate_retrieval` and updates the quoted metrics.
 - Diagrams are Mermaid that GitHub renders, drawn vertically (`flowchart TB`, `sequenceDiagram`) and compact enough for an A4 page. Check that each one renders before committing (node ids such as `call` are reserved).
