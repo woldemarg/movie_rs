@@ -1,7 +1,8 @@
 """Quality gate (AGENTS.md Rule 0): lint, format check, the catalogue, then the whole test suite.
 
-The API, e2e and catalogue tests run against the real catalogue in data/, which is generated, not
-versioned: the gate builds it first when it is missing (once, ~3 min) and otherwise does nothing.
+The API, e2e, catalogue and benchmark tests run against the real catalogue in data/, which is
+generated, not versioned: the gate builds it first when it is missing (once, ~3 min; with
+TMDB_API_KEY in .env also the posters, through the TMDB API) and otherwise does nothing.
 """
 
 import subprocess
