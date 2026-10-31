@@ -9,11 +9,12 @@ const GENRES_UK = {
   "TV Movie": "Телефільм", Thriller: "Трилер", War: "Воєнний", Western: "Вестерн",
 };
 
+// Verified demo queries (README, "Демо-запити").
 const SUGGESTIONS = [
   "Щось атмосферне на кшталт «Того, хто біжить по лезу»",
-  "Мультфільм для всієї родини про дружбу тварин",
   "A mind-bending thriller where nothing is what it seems",
-  "Легка романтична комедія на вечір",
+  "Порадь страшний фільм без крові, щоб лякав атмосферою",
+  "Show me a film with breathtaking visuals of outer space",
 ];
 
 const STORAGE_KEY = "movieharbor.preferences";
