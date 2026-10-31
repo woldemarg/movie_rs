@@ -7,11 +7,13 @@ profile (URL, model, key). Spec: docs/03-llm-and-tool-calling.md.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 
 import httpx
 
+from backend.core.agent import ToolChoice
 from backend.core.tools import AssistantTurn, ToolCall
 
 log = logging.getLogger(__name__)
@@ -40,13 +42,15 @@ class LLMClient:
     timeout_s: float
     transport: httpx.BaseTransport | None = None  # tests inject httpx.MockTransport
 
-    def complete(self, messages: list[dict], tools: list[dict]) -> AssistantTurn:
+    def complete(
+        self, messages: list[dict], tools: list[dict], tool_choice: ToolChoice = "auto"
+    ) -> AssistantTurn:
         """One chat-completion round trip: the model either answers or asks for tool calls."""
         body = {
             "model": self.profile.model,
             "messages": messages,
             "tools": tools,
-            "tool_choice": "auto",
+            "tool_choice": tool_choice,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             **self.profile.extra_body,
@@ -117,10 +121,17 @@ def parse_turn(response: httpx.Response) -> AssistantTurn:
             ToolCall(
                 id=call.get("id") or f"call_{i}",
                 name=call["function"]["name"],
-                arguments=call["function"].get("arguments") or "{}",
+                arguments=arguments_text(call["function"].get("arguments")),
             )
             for i, call in enumerate(message.get("tool_calls") or [])
         )
     except (ValueError, KeyError, IndexError, TypeError, AttributeError):
         raise LLMError("Сервер моделі повернув відповідь у неочікуваному форматі.") from None
     return AssistantTurn(content=message.get("content") or "", tool_calls=calls)
+
+
+def arguments_text(arguments: object) -> str:
+    """Tool arguments as JSON text: the spec says a string, some local servers send an object."""
+    if arguments is None or arguments == "":
+        return "{}"
+    return arguments if isinstance(arguments, str) else json.dumps(arguments, ensure_ascii=False)

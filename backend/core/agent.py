@@ -1,8 +1,9 @@
 """The recommendation agent: an LLM in a loop with the tools of core/tools.py.
 
-One user turn = up to MAX_LLM_CALLS chat completions. Each completion either requests tool
-calls (executed, their results appended, loop continues) or answers in prose. The turn ends when
-the model calls `recommend`. Spec: docs/03-llm-and-tool-calling.md.
+One user turn = up to MAX_LLM_CALLS chat completions. Each completion requests tool calls
+(executed, their results appended, loop continues). A turn ends in exactly one way: a `recommend`
+that the tools accept. Prose instead of tool calls makes the next completion require a tool; prose
+again is an error. Spec: docs/03-llm-and-tool-calling.md.
 """
 
 from __future__ import annotations
@@ -11,9 +12,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from backend.core.prompts import NUDGE, Viewer, build_system_prompt
+from backend.core.prompts import Viewer, build_system_prompt
 from backend.core.tools import (
-    Answer,
     AssistantTurn,
     Recommendation,
     Step,
@@ -22,12 +22,17 @@ from backend.core.tools import (
     Trailer,
 )
 
-MAX_LLM_CALLS = 6  # search, maybe a second search, trailer, recommend, and room for one nudge
+MAX_LLM_CALLS = 6  # search, a second search, trailer, recommend, and room for one correction
 HISTORY_MESSAGES = 10  # recent conversation sent to the model; older turns are dropped
 
 
+ToolChoice = Literal["auto", "required"]
+
+
 class Chat(Protocol):
-    def complete(self, messages: list[dict], tools: list[dict]) -> AssistantTurn: ...
+    def complete(
+        self, messages: list[dict], tools: list[dict], tool_choice: ToolChoice = "auto"
+    ) -> AssistantTurn: ...
 
 
 class AgentError(Exception):
@@ -64,21 +69,21 @@ def run_agent(
     state = ToolState(genre=viewer.genre)
     system = build_system_prompt(viewer, trailers=toolbox.find_trailer is not None)
     messages = [{"role": "system", "content": system}, *recent(conversation)]
-    nudged = False
+    tool_choice: ToolChoice = "auto"
     for calls in range(1, MAX_LLM_CALLS + 1):
-        turn = chat.complete(messages, toolbox.specs)
+        turn = chat.complete(messages, toolbox.specs, tool_choice)
         messages.append(turn.as_message())
+        if not turn.tool_calls:
+            if tool_choice == "required":
+                raise AgentError(
+                    "Модель відповіла текстом замість виклику інструментів. "
+                    "Спробуйте ще раз або оберіть модель, що підтримує інструменти."
+                )
+            tool_choice = "required"  # the turn may end only through recommend
+            continue
         for call in turn.tool_calls:
             result = toolbox.run(call, state)
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
-        if state.answer is None and not turn.tool_calls:
-            if nudged and not turn.content:
-                raise AgentError("Модель повернула порожню відповідь. Спробуйте ще раз.")
-            if nudged:  # a model that will not call recommend: keep its prose, without cards
-                state.answer = Answer(turn.content, ())
-            else:
-                messages.append({"role": "user", "content": NUDGE})
-                nudged = True
         if state.answer is not None:
             return AgentResult(
                 state.answer.reply, state.answer.picks, state.trailer, tuple(state.steps), calls

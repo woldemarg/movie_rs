@@ -69,11 +69,6 @@ TRAILER_RULE = """\
 NO_TRAILER_RULE = """\
 5. Videos are unavailable: rely on your descriptions and do not mention trailers."""
 
-NUDGE = (
-    "(Service note, not from the viewer.) Give your final answer by calling the recommend tool, "
-    "in the language of the viewer's latest message."
-)
-
 
 def build_system_prompt(viewer: Viewer, trailers: bool) -> str:
     unknown = "not specified"

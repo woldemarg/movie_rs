@@ -10,7 +10,9 @@ import logging
 import time
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
@@ -115,6 +117,12 @@ def create_app(settings: Settings | None = None, embed: Embed | None = None) -> 
     trailers = TmdbTrailers(tmdb_key, settings.tmdb_base_url).find if tmdb_key else None
     toolbox = Toolbox(catalog, embed or load_embedder(catalog.embedding_model), trailers)
     app = FastAPI(title="MovieHarbor API")
+
+    @app.exception_handler(RequestValidationError)
+    def invalid_request(request: Request, exc: RequestValidationError) -> JSONResponse:
+        fields = sorted({".".join(map(str, e["loc"][1:])) or "body" for e in exc.errors()})
+        detail = f"Некоректний запит: перевірте {', '.join(fields)}."
+        return JSONResponse({"detail": detail}, status_code=422)
 
     @app.get("/api/config")
     def config() -> ConfigResponse:

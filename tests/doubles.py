@@ -50,9 +50,13 @@ class ScriptedChat:
     def __init__(self, *turns: AssistantTurn) -> None:
         self.turns = list(turns)
         self.requests: list[tuple[list[dict], list[dict]]] = []
+        self.tool_choices: list[str] = []
 
-    def complete(self, messages: list[dict], tools: list[dict]) -> AssistantTurn:
+    def complete(
+        self, messages: list[dict], tools: list[dict], tool_choice: str = "auto"
+    ) -> AssistantTurn:
         self.requests.append(([dict(m) for m in messages], tools))
+        self.tool_choices.append(tool_choice)
         return self.turns.pop(0)
 
 

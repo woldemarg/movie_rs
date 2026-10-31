@@ -60,7 +60,7 @@ def test_agent_shows_a_trailer_when_the_model_asks_for_one(toolbox):
     assert [p.movie.id for p in result.picks] == [3]
 
 
-def test_agent_nudges_once_when_the_model_answers_in_prose(toolbox):
+def test_prose_makes_the_next_call_require_a_tool_without_a_fake_user_turn(toolbox):
     chat = ScriptedChat(
         assistant(tool_call("search_movies", query="ghosts")),
         assistant(content="Раджу The Haunting!"),
@@ -72,18 +72,35 @@ def test_agent_nudges_once_when_the_model_answers_in_prose(toolbox):
     result = run_agent(chat, toolbox, ASK, Viewer())
 
     assert [p.movie.id for p in result.picks] == [2]
-    nudge = chat.requests[2][0][-1]
-    assert nudge["role"] == "user" and "recommend" in nudge["content"]
+    assert chat.tool_choices == ["auto", "auto", "required"]
+    sent = chat.requests[2][0]
+    assert [m["role"] for m in sent].count("user") == 1
+    assert sent[-1] == {"role": "assistant", "content": "Раджу The Haunting!"}
 
 
-def test_agent_falls_back_to_the_models_prose_after_one_nudge(toolbox):
+def test_a_turn_never_ends_in_prose(toolbox):
     chat = ScriptedChat(assistant(content="Привіт!"), assistant(content="Чим допомогти?"))
+
+    with pytest.raises(AgentError, match="інструмент"):
+        run_agent(chat, toolbox, ASK, Viewer())
+
+
+def test_rejected_picks_give_the_model_another_chance(toolbox):
+    chat = ScriptedChat(
+        assistant(tool_call("search_movies", query="ghosts haunt a house")),
+        assistant(
+            tool_call("recommend", reply="Ось.", picks=[{"movie_id": 404, "why": "вигадка"}])
+        ),
+        assistant(
+            tool_call("recommend", reply="Ось.", picks=[{"movie_id": 2, "why": "моторошно"}])
+        ),
+    )
 
     result = run_agent(chat, toolbox, ASK, Viewer())
 
-    assert result.reply == "Чим допомогти?"
-    assert result.picks == ()
-    assert result.llm_calls == 2
+    assert [p.movie.id for p in result.picks] == [2]
+    assert result.llm_calls == 3
+    assert "error" in chat.requests[2][0][-1]["content"]
 
 
 def test_agent_gives_up_after_the_call_budget(toolbox):
@@ -111,8 +128,3 @@ def test_history_entry_remembers_the_picks_for_the_next_turn(toolbox):
 
     assert result.history_entry.startswith("Ось.")
     assert "The Haunting (2002, id 2)" in result.history_entry
-
-
-def test_an_empty_answer_after_the_nudge_is_an_error(toolbox):
-    with pytest.raises(AgentError, match="порожню"):
-        run_agent(ScriptedChat(assistant(), assistant()), toolbox, ASK, Viewer())

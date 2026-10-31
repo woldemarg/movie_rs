@@ -84,7 +84,17 @@ def main() -> None:
         share = genre_precision([movie.genres for movie in catalog.movies], item["genres"])
         precisions.append(precision)
         genres = ", ".join(item["genres"])
-        print(format_row([item["query"], genres, precision, share, f"×{precision / share:.1f}"]))
+        print(
+            format_row(
+                [
+                    item["query"],
+                    genres,
+                    precision,
+                    share,
+                    f"×{precision / share:.1f}" if share else "n/a",
+                ]
+            )
+        )
     print(format_row(["**середнє**", "", statistics.fmean(precisions), "", ""]))
 
     p95 = statistics.quantiles(query_ms, n=20)[18]

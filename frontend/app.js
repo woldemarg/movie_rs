@@ -18,6 +18,7 @@ const SUGGESTIONS = [
 ];
 
 const STORAGE_KEY = "movieharbor.preferences";
+const MAX_HISTORY = 20; // messages sent per request; the agent reads the last 10, the API accepts 50
 const $ = (id) => document.getElementById(id);
 const state = { providers: [], provider: null, messages: [], busy: false };
 
@@ -66,13 +67,19 @@ async function init() {
   const preferences = loadPreferences();
   let config;
   try {
-    config = await (await fetch("api/config")).json();
+    const response = await fetch("api/config");
+    config = await response.json();
+    if (!response.ok || !Array.isArray(config.providers) || !Array.isArray(config.genres)) throw new Error();
   } catch {
-    showError("Не вдалося з'єднатися з сервером MovieHarbor. Перевірте, що бекенд запущено.");
+    disableAsking("Не вдалося з'єднатися з сервером MovieHarbor. Перевірте, що бекенд запущено.");
     return;
   }
   state.providers = config.providers;
   const configured = config.providers.filter((p) => p.configured).map((p) => p.id);
+  if (configured.length === 0) {
+    disableAsking("Жодне джерело моделі не налаштовано. Перевірте файл .env.");
+    return;
+  }
   state.provider = configured.includes(preferences.provider)
     ? preferences.provider
     : (configured.includes("openrouter") ? "openrouter" : configured[0]);
@@ -145,22 +152,36 @@ async function ask(text, { echo = true } = {}) {
       h("span", { class: "dots", "aria-hidden": "true" }, h("i"), h("i"), h("i")),
       "Шукаю фільми й думаю над добіркою…"),
   );
+  const fail = (message) => {
+    state.messages.pop(); // keep user/assistant turns alternating; the retry sends it again
+    pending.replaceWith(renderError(message, () => ask(question, { echo: false })));
+  };
   try {
-    const response = await fetch("api/recommend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider: state.provider, messages: state.messages, viewer: viewer() }),
-    });
+    let response;
+    try {
+      response = await fetch("api/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: state.provider, messages: state.messages.slice(-MAX_HISTORY), viewer: viewer(),
+        }),
+      });
+    } catch {
+      return fail("Немає зв'язку з сервером MovieHarbor.");
+    }
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Некоректний запит.");
+    if (!response.ok) {
+      return fail(typeof data.detail === "string" ? data.detail : `Сервер повернув помилку ${response.status}.`);
+    }
+    let answer;
+    try {
+      answer = renderAnswer(data);
+    } catch {
+      return fail("Сервер повернув відповідь у неочікуваному форматі.");
+    }
     state.messages.push(data.message);
-    const answer = renderAnswer(data);
     pending.replaceWith(answer);
     answer.scrollIntoView({ block: "start", behavior: "smooth" }); // read from the reply down
-  } catch (error) {
-    state.messages.pop(); // keep user/assistant turns alternating; the retry sends it again
-    const message = error instanceof TypeError ? "Немає зв'язку з сервером MovieHarbor." : error.message;
-    pending.replaceWith(renderError(message, () => ask(question, { echo: false })));
   } finally {
     setBusy(false);
   }
@@ -241,8 +262,10 @@ function renderError(message, retry) {
   );
 }
 
-function showError(message) {
+function disableAsking(message) {
   append(renderError(message, null));
+  $("send").disabled = true;
+  $("question").readOnly = true;
 }
 
 function newChat() {
