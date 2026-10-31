@@ -5,8 +5,10 @@ description = "MovieHarbor: an LLM-powered movie recommender (master thesis proo
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi",
     "fastembed",
     "google-genai",
+    "httpx",
     "numpy",
     "openai",
     "pandas",
@@ -14,6 +16,7 @@ dependencies = [
     "python-dotenv",
     "requests",
     "streamlit",
+    "uvicorn",
 ]
 
 [dependency-groups]
