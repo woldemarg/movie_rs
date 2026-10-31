@@ -69,9 +69,10 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 | `scripts/prepare_data.py`, `scripts/build_catalog.py`, `scripts/refresh_posters.py`, `backend/core/catalog.py`, `backend/adapters/embedder.py`, `data/` | `docs/02-data-and-embeddings.md` |
 | `backend/core/agent.py`, `tools.py`, `prompts.py`, `backend/adapters/llm.py`, `tmdb.py`, `backend/settings.py`, `.env.sample` | `docs/03-llm-and-tool-calling.md` |
 | `frontend/`, `backend/api.py` | `docs/04-interface.md` |
-| the request's path across modules and external services, `tests/` (layers, stubs, e2e) | `docs/05-e2e-workflow.md` |
+| the request's path across modules and external services | `docs/05-e2e-workflow.md` |
 | `scripts/evaluate_retrieval.py`, `data/eval/retrieval_queries.json` | `docs/06-evaluation.md` |
 | `scripts/evaluate_selection.py`, `data/eval/selection_*.json` | `docs/09-selection-parameters.md` |
+| `tests/` (layers, doubles, e2e), `scripts/check.py`, `.github/workflows/ci.yml` | `docs/10-testing.md` |
 | the embedding model (`DEFAULT_MODEL` in `backend/adapters/embedder.py`) | `docs/07-embedding-model.md` |
 | grounding, argument validation, prompt guardrails, how a turn ends (`tools.py`, `prompts.py`, `agent.py`) | also `docs/08-hallucinations.md` (the risk register) |
 
