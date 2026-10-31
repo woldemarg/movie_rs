@@ -186,4 +186,4 @@ stateDiagram-v2
 | `frontend/nginx.conf`, `frontend/Dockerfile` | контейнер фронтенду: роздача файлів і проксі `/api/` без буферизації |
 | `backend/api.py` | ендпоінти, моделі запиту й відповіді, `Recommender`, потік NDJSON |
 | `tests/test_api.py` | контракт API, зокрема потік і помилки валідації |
-| `tests/test_e2e.py` | сценарії в браузері ([розділ 5](05-e2e-workflow.md)) |
+| `tests/test_e2e.py` | сценарії в браузері ([розділ 10.6](10-testing.md#106-сценарії-e2e)) |

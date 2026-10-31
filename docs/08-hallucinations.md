@@ -101,6 +101,8 @@ flowchart TB
 
 ## 8.6. Код і тести
 
+Як влаштовано тестування загалом — [розділ 10](10-testing.md).
+
 | Захід | Код | Тести |
 |---|---|---|
 | Заземлення, перевірка аргументів, доступні інструменти | `backend/core/tools.py` (`ToolState.candidates`, `Toolbox.run`, `Toolbox.available`) | `tests/test_tools.py` |

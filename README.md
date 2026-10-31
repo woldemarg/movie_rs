@@ -116,7 +116,7 @@ backend/            бекенд (Python, FastAPI)
   adapters/         зовнішні сервіси: llm.py, tmdb.py, embedder.py
 frontend/           вебінтерфейс: index.html, app.js, styles.css
 data/               raw/ — сирий набір (у git); movies.json + movie_vectors.npy — каталог (генерується); eval/ — бенчмарки пошуку й вибору
-docs/               специфікація (9 розділів) і знімки екрана
+docs/               специфікація (10 розділів) і знімки екрана
 scripts/            check.py — контроль якості; prepare_data, build_catalog, refresh_posters, evaluate_retrieval, evaluate_selection
 models/             кеш моделей (у .gitignore): embeddings/, ollama/
 compose.yaml, compose.gpu.yaml   контейнери: frontend (frontend/Dockerfile, nginx.conf), backend (backend/Dockerfile), ollama, ollama-init
@@ -132,11 +132,12 @@ notebooks/          ноутбук, з якого почався проєкт (�
 2. [Дані та ембедінги](docs/02-data-and-embeddings.md)
 3. [LLM і виклик інструментів](docs/03-llm-and-tool-calling.md)
 4. [Інтерфейс: вебсторінка й HTTP API](docs/04-interface.md)
-5. [Наскрізний сценарій: модулі, зовнішні сервіси, тести](docs/05-e2e-workflow.md)
+5. [Наскрізний сценарій: модулі й зовнішні сервіси](docs/05-e2e-workflow.md)
 6. [Оцінювання якості пошуку](docs/06-evaluation.md)
 7. [Вибір моделі ембедінгів](docs/07-embedding-model.md)
 8. [Ризики галюцинацій LLM і як їх враховано](docs/08-hallucinations.md)
 9. [Вплив параметрів глядача на вибір](docs/09-selection-parameters.md)
+10. [Стратегія тестування](docs/10-testing.md)
 
 Правила роботи з кодом (для людей і AI-агентів) — у [AGENTS.md](AGENTS.md).
 
@@ -152,7 +153,7 @@ uv run python scripts/check.py       # ruff (зокрема складність
 - **Архітектурний тест:** ядро не залежить від HTTP.
 - **E2E-сценарії в Chromium.**
 
-Тести не звертаються до мережі: LLM і TMDB замінено локальною заглушкою. CI запускає те саме для кожного PR.
+Тести не звертаються до мережі: LLM і TMDB замінено локальною заглушкою. CI запускає те саме для кожного PR. Стратегію тестування описано в [розділі 10](docs/10-testing.md).
 
 Перебудувати дані й повторити вимірювання:
 
