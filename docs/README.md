@@ -9,5 +9,6 @@
 5. [Наскрізний сценарій: модулі, зовнішні сервіси, тести](05-e2e-workflow.md)
 6. [Оцінювання якості пошуку](06-evaluation.md)
 7. [Вибір моделі ембедінгів](07-embedding-model.md)
+8. [Ризики галюцинацій LLM](08-hallucinations.md)
 
 Діаграми — Mermaid. GitHub рендерить їх у переглядачі. Для тексту роботи їх можна експортувати у SVG ([Mermaid Live Editor](https://mermaid.live) або `mmdc`). Знімки екрана — у [`images/`](images/).
