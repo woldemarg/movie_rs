@@ -19,11 +19,11 @@
 flowchart TB
     subgraph gate["scripts/check.py"]
         direction TB
-        lint["ruff: стиль, імпорти, складність ≤ 10"]
-        unit["Модульні тести (70): ядро, адаптери, дані"]
+        lint["ruff: стиль, складність ≤ 10;<br/>prepare_data: каталог, якщо немає"]
+        unit["Модульні тести (71): ядро, адаптери, дані"]
         arch["Архітектурний тест (1): ядро без HTTP"]
-        api["API-тести (14): HTTP-стек і заглушки"]
-        e2e["E2E-тести (6): Chromium → сторінка → агент"]
+        api["API-тести (15): HTTP-стек і заглушки"]
+        e2e["E2E-тести (7): Chromium → сторінка → агент"]
         lint --> unit --> arch --> api --> e2e
     end
     ci["CI: образи Docker, димовий тест через nginx"]
@@ -37,20 +37,20 @@ flowchart TB
     gate --> live
 ```
 
-Контроль якості (`scripts/check.py`) запускає три кроки по черзі й зупиняється на першому збої: `ruff check`, `ruff format --check`, `pytest`. CI виконує той самий скрипт. Живі перевірки дорожчі й недетерміновані, тому запускаються за потреби: після зміни промпту, інструментів, каталогу чи моделі (§10.7).
+Контроль якості (`scripts/check.py`) запускає чотири кроки по черзі й зупиняється на першому збої: `ruff check`, `ruff format --check`, `python -m scripts.prepare_data` (будує каталог, лише якщо його немає) і `pytest`. CI виконує той самий скрипт. Живі перевірки дорожчі й недетерміновані, тому запускаються за потреби: після зміни промпту, інструментів, каталогу чи моделі (§10.7).
 
 ## 10.3. Набір тестів
 
-91 тест у 15 файлах (з параметризованими випадками).
+94 тести в 15 файлах (з параметризованими випадками).
 
 | Шар | Файли (тестів) | Підміни | Що перевіряє |
 |---|---|---|---|
 | Ядро | `test_tools.py` (14), `test_agent.py` (9), `test_catalog.py` (6), `test_prompts.py` (5) | `fake_embed`, `ScriptedChat`, `FakeTrailers` | схеми інструментів, заземлення, цикл агента й бюджет звернень, пошук і жанровий фільтр, атомарний запис каталогу, запобіжники промпту, мова відповіді |
-| Адаптери й налаштування | `test_llm_client.py` (15), `test_tmdb.py` (3), `test_settings.py` (3) | `httpx.MockTransport` | запит Chat Completions з інструментами, розбір відповіді, помилки сервера й мережі як українські повідомлення без ключів, вибір трейлера, профілі джерел, актуальність `.env.sample` |
+| Адаптери й налаштування | `test_llm_client.py` (16), `test_tmdb.py` (3), `test_settings.py` (3) | `httpx.MockTransport` | запит Chat Completions з інструментами, розбір відповіді, готовність моделі на сервері, помилки сервера й мережі як українські повідомлення без ключів, вибір трейлера, профілі джерел, актуальність `.env.sample` |
 | Дані й метрики | `test_build_catalog.py` (3), `test_prepare_data.py` (1), `test_refresh_posters.py` (1), `test_evaluate_retrieval.py` (4), `test_evaluate_selection.py` (6) | функції-підміни побудови й TMDB | поріг голосів і зважений рейтинг, відбір фільмів, побудова лише відсутнього каталогу, оновлення постерів, формули метрик і бутстреп-інтервалів, узгодженість бенчмарків із каталогом |
 | Архітектура | `test_architecture.py` (1) | — | `backend/core` не імпортує `fastapi`, `httpx`, `uvicorn`, `fastembed`, адаптери й `backend.api` |
-| API | `test_api.py` (14) | заглушковий сервер LLM і TMDB | ендпоінти, коди 400, 422 і 502, жоден невалідний запит не доходить до моделі, ключі не потрапляють у відповіді, потік NDJSON |
-| E2E | `test_e2e.py` (6) | заглушковий сервер; браузер бачить лише `127.0.0.1` | сценарії з §10.6 |
+| API | `test_api.py` (15) | заглушковий сервер LLM і TMDB | ендпоінти, коди 400, 422 і 502, жоден невалідний запит не доходить до моделі, ключі не потрапляють у відповіді, потік NDJSON |
+| E2E | `test_e2e.py` (7) | заглушковий сервер; браузер бачить лише `127.0.0.1` | сценарії з §10.6 |
 
 ## 10.4. Підміни зовнішніх залежностей
 
@@ -81,6 +81,7 @@ flowchart TB
 | Невалідний запит не доходить до моделі | `test_invalid_requests_are_rejected_before_any_model_call` (5 випадків), `test_the_stream_validates_before_streaming_and_reports_model_failures_as_an_event` |
 | Кроки агента йдуть потоком | `test_each_tool_call_is_reported_as_it_runs`, `test_the_stream_reports_each_step_then_the_answer`, `test_steps_carry_the_ranked_candidates_and_the_choice_for_the_trace` |
 | Ядро не залежить від HTTP | `test_core_imports_no_web_framework_http_client_or_adapter` |
+| Локальна модель пропонується, лише коли сервер її вже має | `test_a_model_is_ready_only_once_the_server_lists_it`, `test_the_local_model_is_ready_only_once_its_server_lists_it`, `test_a_local_model_still_downloading_disables_asking_until_it_is_ready` |
 | Каталог не псується під час запису | `test_an_interrupted_write_leaves_the_previous_file_intact` |
 | Каталог і бенчмарки узгоджені | `test_built_catalogue_is_consistent`, `test_benchmark_refers_to_movies_and_genres_of_the_shipped_catalogue`, `test_the_benchmark_uses_genres_of_the_catalogue` |
 | `.env.sample` містить лише справжні налаштування | `test_env_sample_lists_only_real_settings` |
@@ -98,6 +99,7 @@ flowchart TB
 | Помилка й повтор | помилка моделі українською; «Спробувати ще раз» без дубля репліки |
 | Приклади й нова розмова | приклад запускає розмову; «Нова розмова» очищає розмову й панель |
 | Бекенд ще запускається | поле запиту вимкнене з поясненням; сторінка підключається сама |
+| Локальна модель ще завантажується | жодне джерело не готове → поле запиту вимкнене з поясненням; щойно модель готова, сторінка вмикає запит і обирає локальну модель |
 | Неочікувана відповідь | тіло не того формату → «неочікуваному форматі», а не «немає зв'язку» |
 
 ## 10.7. Живі перевірки
@@ -120,8 +122,8 @@ flowchart TB
     pr(["PR або push у main"])
     subgraph check["Job check"]
         direction TB
-        prep["uv sync --locked; кеш моделі ембедінгів;<br/>prepare_data: каталог із data/raw"]
-        gate["playwright install chromium;<br/>python scripts/check.py"]
+        prep["uv sync --locked;<br/>кеш моделі ембедінгів"]
+        gate["playwright install chromium;<br/>python scripts/check.py (будує каталог)"]
         artifact["артефакт: модель ембедінгів і каталог"]
         prep --> gate --> artifact
     end
@@ -140,7 +142,7 @@ Job `docker` бере модель ембедінгів і каталог з а�
 
 - **Справжня LLM у контролі якості не бере участі.** Збої моделі тести відтворюють сценаріями `ScriptedChat`: текст замість виклику, id не з пошуку, вичерпаний бюджет. Так перевіряється реакція коду, але не частота збоїв. Її показують лише живі перевірки.
 - **`fake_embed` перевіряє механіку пошуку, а не якість.** Якість пошуку вимірює [розділ 6](06-evaluation.md).
-- **Каталог потрібен заздалегідь.** `create_app` завантажує справжній каталог із `data/` (запит кодує `fake_embed` тієї самої розмірності). Тому API- й E2E-тести, а також тести узгодженості каталогу без `python -m scripts.prepare_data` падають, а не пропускаються.
+- **Тести працюють зі справжнім каталогом.** `create_app` завантажує каталог із `data/` (запит кодує `fake_embed` тієї самої розмірності). Каталог не зберігається в git, тож контроль якості спершу будує його, якщо його немає: на свіжому клоні перший запуск триває ≈ 3 хв довше і потребує мережі, щоб один раз завантажити модель ембедінгів.
 - **Вигляд сторінки не тестується.** E2E-тести перевіряють вміст і поведінку, а не верстку. Знімки екрана в `docs/images/` зроблено на живому стеку.
 - **Docker у CI — лише димовий тест.** Контейнери `ollama` й `ollama-init` перевірено лише вручну.
 - **Живі перевірки малі.** По 2 прогони на запит. Скрипт прогону демо-запитів не входить у репозиторій.
@@ -151,8 +153,7 @@ Job `docker` бере модель ембедінгів і каталог з а�
 ```bash
 uv sync
 uv run playwright install chromium       # один раз, для E2E
-uv run python -m scripts.prepare_data    # каталог, один раз (≈ 3 хв)
-uv run python scripts/check.py           # ruff + усі тести, разом з E2E
+uv run python scripts/check.py           # ruff, каталог (якщо немає, ≈ 3 хв), усі тести з E2E
 uv run pytest tests/test_agent.py -k prose   # окремі тести під час роботи
 ```
 

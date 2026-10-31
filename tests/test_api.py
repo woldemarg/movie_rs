@@ -24,9 +24,9 @@ def test_config_lists_both_sources_and_never_exposes_keys(stub):
 
     assert response.status_code == 200
     config = response.json()
-    assert [(p["id"], p["model"], p["configured"]) for p in config["providers"]] == [
-        ("local", "stub-local", True),
-        ("openrouter", "stub-remote", True),
+    assert [(p["id"], p["model"], p["configured"], p["ready"]) for p in config["providers"]] == [
+        ("local", "stub-local", True, True),
+        ("openrouter", "stub-remote", True, True),
     ]
     assert config["movies"] > 2000 and "Horror" in config["genres"]
     assert config["trailers"] is True
@@ -34,7 +34,21 @@ def test_config_lists_both_sources_and_never_exposes_keys(stub):
 
     unconfigured = make_client(stub, tmdb_api_key="").get("/api/config").json()
     assert unconfigured["providers"][1]["configured"] is False
+    assert unconfigured["providers"][1]["ready"] is False
     assert unconfigured["trailers"] is False
+
+
+def test_the_local_model_is_ready_only_once_its_server_lists_it(stub):
+    pulling = make_client(stub, local_llm_model="gemma4:e4b").get("/api/config").json()
+    local = pulling["providers"][0]
+    assert (local["configured"], local["ready"]) == (True, False)
+
+    stub.app.state.models.append("gemma4:e4b")  # ollama-init finished the download
+    try:
+        ready = make_client(stub, local_llm_model="gemma4:e4b").get("/api/config").json()
+    finally:
+        stub.app.state.models.remove("gemma4:e4b")
+    assert ready["providers"][0]["ready"] is True
 
 
 def test_recommend_runs_the_agent_through_the_selected_model(stub):

@@ -16,7 +16,6 @@ jobs:
         with:
           path: models/embeddings
           key: embeddings-${{ hashFiles('backend/adapters/embedder.py') }}
-      - run: uv run python -m scripts.prepare_data
       - run: uv run playwright install --with-deps chromium
       - run: uv run python scripts/check.py
       - uses: actions/upload-artifact@v4

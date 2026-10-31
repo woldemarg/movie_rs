@@ -19,6 +19,7 @@ from backend.core.tools import AssistantTurn, ToolCall
 log = logging.getLogger(__name__)
 
 CONNECT_TIMEOUT_S = 5.0  # a server that does not accept the connection by then is not running
+READY_TIMEOUT_S = 1.0  # the readiness check runs on every GET /api/config
 
 
 class LLMError(Exception):
@@ -81,6 +82,21 @@ class LLMClient:
             f"Сервер моделі недоступний ({self.profile.base_url}). "
             "Перевірте, що він запущений, або оберіть інше джерело моделі."
         )
+
+
+def serves_model(profile: LLMProfile, transport: httpx.BaseTransport | None = None) -> bool:
+    """Whether the server already lists the profile's model (`GET {base_url}/models`).
+
+    A local server can run before its model exists: in Docker, ollama-init pulls the weights after
+    Ollama starts. Unreachable, slow or malformed means not ready.
+    """
+    url = f"{profile.base_url.rstrip('/')}/models"
+    try:
+        with httpx.Client(transport=transport, timeout=READY_TIMEOUT_S) as http:
+            models = http.get(url).json()["data"]
+        return any(model.get("id") == profile.model for model in models)
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):
+        return False
 
 
 def describe_http_error(response: httpx.Response, profile: LLMProfile) -> str:

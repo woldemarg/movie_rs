@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from backend.adapters.llm import LLMClient, LLMError, LLMProfile
+from backend.adapters.llm import LLMClient, LLMError, LLMProfile, serves_model
 
 SECRET = "sk-or-secret-123"
 TOOLS = [{"type": "function", "function": {"name": "search_movies", "parameters": {}}}]
@@ -113,3 +113,27 @@ def test_tool_arguments_sent_as_a_json_object_are_normalised_to_text():
     turn = client(lambda request: reply(message)).complete(MESSAGES, TOOLS)
 
     assert turn.tool_calls[0].arguments == '{"query": "x"}'
+
+
+def test_a_model_is_ready_only_once_the_server_lists_it():
+    profile = LLMProfile("local", "http://ollama.test/v1/", "gemma4:e4b")
+    listed = {"object": "list", "data": [{"id": "gemma4:e4b", "object": "model"}]}
+
+    def serving(*ids: str) -> httpx.MockTransport:
+        data = {"object": "list", "data": [{"id": i} for i in ids]}
+        return httpx.MockTransport(lambda request: httpx.Response(200, json=data))
+
+    def down(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused")
+
+    seen = []
+    assert serves_model(
+        profile,
+        httpx.MockTransport(lambda r: seen.append(r.url) or httpx.Response(200, json=listed)),
+    )
+    assert str(seen[0]) == "http://ollama.test/v1/models"
+    assert not serves_model(profile, serving("llama3"))  # the weights are still downloading
+    assert not serves_model(profile, httpx.MockTransport(down))
+    assert not serves_model(
+        profile, httpx.MockTransport(lambda r: httpx.Response(200, text="<html>"))
+    )

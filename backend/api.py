@@ -24,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
 from backend.adapters.embedder import load_embedder
-from backend.adapters.llm import LLMClient, LLMError, LLMProfile
+from backend.adapters.llm import LLMClient, LLMError, LLMProfile, serves_model
 from backend.adapters.tmdb import TmdbTrailers
 from backend.core.agent import AgentError, AgentResult, Message, run_agent
 from backend.core.catalog import Catalog, Embed
@@ -107,7 +107,8 @@ class ProviderOut(BaseModel):
     id: Provider
     label: str
     model: str
-    configured: bool
+    configured: bool  # the settings name this source (OpenRouter: LLM_API_KEY is set)
+    ready: bool  # it can answer now (local: the server already lists the model)
 
 
 class ConfigResponse(BaseModel):
@@ -115,6 +116,11 @@ class ConfigResponse(BaseModel):
     genres: list[str]
     movies: int
     trailers: bool
+
+
+def is_ready(profile: LLMProfile | None) -> bool:
+    """A configured source that can answer now; a local server must already list its model."""
+    return profile is not None and (profile.provider != "local" or serves_model(profile))
 
 
 @dataclass(frozen=True)
@@ -134,6 +140,7 @@ class Recommender:
                 if provider == "local"
                 else self.settings.llm_model,
                 configured=self.settings.llm_profile(provider) is not None,
+                ready=is_ready(self.settings.llm_profile(provider)),
             )
             for provider, label in PROVIDER_LABELS.items()
         ]

@@ -1,4 +1,8 @@
-"""Quality gate (AGENTS.md Rule 0): lint, format check, then the whole test suite."""
+"""Quality gate (AGENTS.md Rule 0): lint, format check, the catalogue, then the whole test suite.
+
+The API, e2e and catalogue tests run against the real catalogue in data/, which is generated, not
+versioned: the gate builds it first when it is missing (once, ~3 min) and otherwise does nothing.
+"""
 
 import subprocess
 import sys
@@ -6,6 +10,7 @@ import sys
 STEPS = (
     ("ruff", "check", "."),
     ("ruff", "format", "--check", "."),
+    ("scripts.prepare_data",),
     ("pytest",),
 )
 

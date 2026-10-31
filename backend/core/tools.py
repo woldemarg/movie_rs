@@ -251,7 +251,7 @@ class Tool:
     name: str
     description: str
     args_model: type[BaseModel]
-    handler: Callable[[Toolbox, BaseModel, ToolState], tuple[dict, str]]
+    handler: Callable[[Toolbox, BaseModel, ToolState], Handled]
 
     def spec(self) -> dict:
         """The OpenAI tool definition; its parameters are the args model's JSON schema."""

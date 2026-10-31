@@ -21,6 +21,8 @@ const SUGGESTIONS = [
 ];
 
 const STORAGE_KEY = "movieharbor.preferences";
+const POLL_MS = 3000; // how often a page waiting for the backend or the model asks again
+const SLOW_START_POLLS = 200; // ≈ 10 min of waiting: then point to the logs
 const MAX_HISTORY = 20; // messages sent per request; the agent reads the last 8, the API accepts 50
 const $ = (id) => document.getElementById(id);
 const state = { providers: [], provider: null, messages: [], busy: false };
@@ -68,32 +70,12 @@ function savePreferences() {
 
 async function init() {
   const preferences = loadPreferences();
-  let config, waiting = null;
-  for (;;) { // the frontend may be up before the backend (first start: catalogue, model)
-    try {
-      const response = await fetch("api/config");
-      config = await response.json();
-      if (response.ok && Array.isArray(config.providers) && Array.isArray(config.genres)) break;
-    } catch {
-      // not reachable yet
-    }
-    waiting ??= disableAsking("Сервер MovieHarbor ще запускається (перший запуск готує каталог і модель). Сторінка підключиться сама.");
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-  }
-  if (waiting) {
-    waiting.remove();
-    $("welcome").hidden = false;
-    $("send").disabled = false;
-    $("question").readOnly = false;
-  }
+  const config = await waitForConfig();
   state.providers = config.providers;
-  const configured = config.providers.filter((p) => p.configured).map((p) => p.id);
-  if (configured.length === 0) {
-    disableAsking("Жодне джерело моделі не налаштовано. Перевірте файл .env.");
-    return;
-  }
-  state.provider = configured.includes(preferences.provider) ? preferences.provider : configured[0]; // local first
+  const ready = config.providers.filter((p) => p.ready).map((p) => p.id);
+  state.provider = ready.includes(preferences.provider) ? preferences.provider : ready[0]; // local first
   renderSourceSwitch();
+  watchSources();
 
   const genres = [...config.genres].sort((a, b) => genreName(a).localeCompare(genreName(b), "uk"));
   $("genre").append(...genres.map((g) => h("option", { value: g }, genreName(g))));
@@ -108,6 +90,73 @@ async function init() {
   );
 }
 
+async function fetchConfig() {
+  try {
+    const response = await fetch("api/config");
+    const config = await response.json();
+    return response.ok && Array.isArray(config.providers) && Array.isArray(config.genres) ? config : null;
+  } catch {
+    return null; // not reachable yet
+  }
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// The page may be up before the backend (first start builds the catalogue), and the backend before
+// the local model (first start downloads it): wait until one model source can answer.
+async function waitForConfig() {
+  let notice = null, shown = "";
+  for (let poll = 1; ; poll++) {
+    const config = await fetchConfig();
+    if (config?.providers.some((p) => p.ready)) {
+      if (notice) {
+        notice.remove();
+        $("welcome").hidden = false;
+        $("send").disabled = false;
+        $("question").readOnly = false;
+      }
+      return config;
+    }
+    const message = waitingMessage(config, poll >= SLOW_START_POLLS);
+    if (message !== shown) {
+      notice?.remove();
+      notice = disableAsking(message);
+      shown = message;
+    }
+    await sleep(POLL_MS);
+  }
+}
+
+function waitingMessage(config, slow) {
+  if (!config) {
+    return "Сервер MovieHarbor ще запускається (перший запуск готує каталог). Сторінка підключиться сама."
+      + (slow ? " Це триває довше, ніж зазвичай: перегляньте журнал (docker compose logs backend)." : "");
+  }
+  return "Локальна модель ще завантажується (перший запуск: ≈ 5,5 ГБ) або її сервер недоступний; OpenRouter вимагає LLM_API_KEY у файлі .env. Сторінка підключиться сама."
+    + (slow ? " Це триває довше, ніж зазвичай: перегляньте журнал (docker compose logs ollama-init)." : "");
+}
+
+// A source that is configured but not ready yet (the local model still downloading) is enabled
+// in the switch once it is; the page stops asking after SLOW_START_POLLS.
+async function watchSources() {
+  for (let poll = 0; poll < SLOW_START_POLLS; poll++) {
+    if (!state.providers.some((p) => p.configured && !p.ready)) return;
+    await sleep(POLL_MS);
+    const config = await fetchConfig();
+    if (config) {
+      state.providers = config.providers;
+      renderSourceSwitch();
+    }
+  }
+}
+
+function sourceTitle(p) {
+  if (p.ready) return `Модель: ${p.model}`;
+  return p.configured
+    ? "Модель ще завантажується або її сервер недоступний"
+    : "Не налаштовано: додайте LLM_API_KEY у файл .env";
+}
+
 function renderSourceSwitch() {
   const buttons = state.providers.map((p) =>
     h("button", {
@@ -116,8 +165,8 @@ function renderSourceSwitch() {
       class: "source-option",
       "aria-checked": String(p.id === state.provider),
       "data-provider": p.id,
-      disabled: !p.configured,
-      title: p.configured ? `Модель: ${p.model}` : "Не налаштовано: додайте LLM_API_KEY у файл .env",
+      disabled: !p.ready,
+      title: sourceTitle(p),
       onclick: () => {
         state.provider = p.id;
         savePreferences();
