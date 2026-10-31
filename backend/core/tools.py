@@ -7,12 +7,15 @@ or TMDB, records the outcome in the turn's `ToolState` and returns the JSON the 
 | Tool            | The model uses it to                    | Effect on ToolState              |
 |-----------------|-----------------------------------------|----------------------------------|
 | search_movies   | retrieve candidates by a description    | replaces `candidates` with hits  |
-| show_trailer    | show a trailer when words fall short    | sets `trailer`                   |
+| show_trailer    | show a trailer when it decides the look | sets `trailer`                   |
+|                 | of the film matters (optional)          |                                  |
 | recommend       | give the final, structured answer       | sets `answer` (ends the turn)    |
 |                 |                                         | unless every pick is rejected    |
 
-Grounding: show_trailer and recommend accept only movies from the latest search_movies result,
-so the model cannot recommend a film outside the catalogue or outside the search it relies on.
+Grounding: show_trailer and recommend accept only movies from the latest search_movies result, so
+the model cannot recommend or show a film outside the catalogue or outside the search it relies on.
+show_trailer is offered only when TMDB is configured. Tuned for a small local model
+(docs/03-llm-and-tool-calling.md §3.10).
 Spec: docs/03-llm-and-tool-calling.md.
 """
 
@@ -29,7 +32,10 @@ from backend.core.catalog import Catalog, Embed, Hit, Movie
 
 SEARCH_K = 12  # candidates per search; docs/06-evaluation.md measures Recall@12
 MAX_PICKS = 5  # with the reply and why limits below, the largest recommend fits LLM_MAX_TOKENS
-OVERVIEW_CHARS = 300  # keeps 12 candidates around 1,500 prompt tokens
+OVERVIEW_CHARS = 200  # keeps 12 candidates around 1,000 prompt tokens for a small model
+
+Handled = tuple[dict, str, dict]
+"""A handler's (JSON result for the model, Ukrainian outcome, data for the trace panel)."""
 
 FindTrailer = Callable[[int], str | None]
 """TMDB id -> YouTube key of the movie's trailer, or None (backend/adapters/tmdb.py)."""
@@ -66,17 +72,8 @@ class SearchMoviesArgs(BaseModel):
     query: str = Field(
         min_length=2,
         max_length=400,
-        description="English description of the wanted film: plot, themes, mood, style. "
-        "For 'like film X', describe X's key traits rather than only its title.",
-    )
-
-
-class ShowTrailerArgs(BaseModel):
-    movie_id: int = Field(description="id of a film from the search_movies results")
-    reason: str = Field(
-        min_length=3,
-        max_length=300,
-        description="One sentence, in the viewer's language: what exactly to watch for.",
+        description="Description of the wanted film in the viewer's language (do not translate): "
+        "plot, themes, mood, style; for 'like film X', its traits plus its title.",
     )
 
 
@@ -85,7 +82,16 @@ class Pick(BaseModel):
     why: str = Field(
         min_length=3,
         max_length=300,
-        description="1-2 sentences, in the viewer's language: why the film suits the request.",
+        description="One sentence, in the viewer's language: why the film fits this request.",
+    )
+
+
+class ShowTrailerArgs(BaseModel):
+    movie_id: int = Field(description="id of your best film from the search_movies results")
+    reason: str = Field(
+        min_length=3,
+        max_length=300,
+        description="One sentence, in the viewer's language: what exactly to watch for.",
     )
 
 
@@ -93,12 +99,13 @@ class RecommendArgs(BaseModel):
     reply: str = Field(
         min_length=1,
         max_length=600,
-        description="A short, lively introduction (1-3 sentences) in the viewer's language, "
-        "without listing the films.",
+        description="One or two lively sentences in the viewer's language that introduce the "
+        "picks without listing them.",
     )
     picks: list[Pick] = Field(
         max_length=MAX_PICKS,
-        description="1-5 films, best first; empty if the request is not about films.",
+        description="Usually 3 films (up to 5 if asked), best first, ids from the latest search "
+        "results; empty if the request is not about films.",
     )
 
 
@@ -128,6 +135,7 @@ class Step:
     tool: str
     arguments: dict[str, object]
     outcome: str  # short Ukrainian summary
+    data: dict[str, object] = field(default_factory=dict)  # what the trace panel explains
 
 
 @dataclass
@@ -145,7 +153,9 @@ class ToolState:
 class Toolbox:
     catalog: Catalog
     embed: Embed
-    find_trailer: FindTrailer | None  # None when TMDB is not configured: no show_trailer
+    find_trailer: (
+        FindTrailer | None
+    )  # None when TMDB is not configured: trailer requests are ignored
 
     @property
     def available(self) -> dict[str, Tool]:
@@ -169,30 +179,42 @@ class Toolbox:
                 f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors()
             )
             return self._fail(state, call, f"invalid arguments: {problems}")
-        result, outcome = tool.handler(self, args, state)
-        state.steps.append(Step(call.name, args.model_dump(), outcome))
+        result, outcome, data = tool.handler(self, args, state)
+        state.steps.append(Step(call.name, args.model_dump(), outcome, data))
         return json.dumps(result, ensure_ascii=False)
 
-    def search_movies(self, args: SearchMoviesArgs, state: ToolState) -> tuple[dict, str]:
+    def search_movies(self, args: SearchMoviesArgs, state: ToolState) -> Handled:
         hits = self.catalog.search(self.embed([args.query])[0], k=SEARCH_K, genre=state.genre)
         state.candidates = {
             hit.movie.id: hit for hit in hits
         }  # the latest search grounds the answer
-        return {"movies": [candidate(hit.movie) for hit in hits]}, f"знайдено {len(hits)} фільмів"
+        nearest = ", ".join(f"{h.movie.title} ({h.score:.2f})" for h in hits[:3])
+        outcome = f"знайдено {len(hits)} фільмів" + (f"; найближчі: {nearest}" if hits else "")
+        ranked = [
+            {
+                "id": h.movie.id,
+                "title": h.movie.title,
+                "year": h.movie.year,
+                "score": round(h.score, 3),
+            }
+            for h in hits
+        ]
+        return {"movies": [candidate(hit.movie) for hit in hits]}, outcome, {"candidates": ranked}
 
-    def show_trailer(self, args: ShowTrailerArgs, state: ToolState) -> tuple[dict, str]:
+    def show_trailer(self, args: ShowTrailerArgs, state: ToolState) -> Handled:
         hit = state.candidates.get(args.movie_id)
         if hit is None:
-            return {
-                "error": "movie_id is not among the search results"
-            }, "помилка: фільм не з пошуку"
+            error = {"error": "movie_id is not among the latest search results"}
+            return error, "помилка: фільм не з пошуку", {}
         key = self.find_trailer(hit.movie.id) if self.find_trailer else None  # offered only with it
+        status = "shown" if key else "not_found"
+        data = {"id": hit.movie.id, "title": hit.movie.title, "status": status}
         if key is None:
-            return {"status": "not_found"}, f"трейлер «{hit.movie.title}» не знайдено"
+            return {"status": status}, f"трейлер «{hit.movie.title}» не знайдено", data
         state.trailer = Trailer(hit.movie, key, args.reason)
-        return {"status": "shown"}, f"трейлер «{hit.movie.title}» показано"
+        return {"status": status}, f"трейлер «{hit.movie.title}» показано", data
 
-    def recommend(self, args: RecommendArgs, state: ToolState) -> tuple[dict, str]:
+    def recommend(self, args: RecommendArgs, state: ToolState) -> Handled:
         accepted: dict[int, Recommendation] = {}
         rejected: list[int] = []
         for pick in args.picks:
@@ -203,10 +225,20 @@ class Toolbox:
                 accepted[pick.movie_id] = Recommendation(hit.movie, pick.why)
         if args.picks and not accepted:  # nothing grounded: the model must choose again
             error = "none of the movie_ids are among the latest search results; choose from them"
-            return {"error": error, "rejected": rejected}, f"помилка: відхилено всі {len(rejected)}"
+            note = f"помилка: відхилено всі {len(rejected)}"
+            return (
+                {"error": error, "rejected": rejected},
+                note,
+                {"accepted": [], "rejected": rejected},
+            )
         state.answer = Answer(args.reply, tuple(accepted.values()))
         result = {"status": "ok", "accepted": list(accepted), "rejected": rejected}
-        return result, f"прийнято {len(accepted)}, відхилено {len(rejected)}"
+        titles = ", ".join(r.movie.title for r in accepted.values())
+        outcome = f"прийнято {len(accepted)}" + (f": {titles}" if titles else "")
+        outcome += f"; відхилено {len(rejected)}" + (
+            f" (id {', '.join(map(str, rejected))})" if rejected else ""
+        )
+        return result, outcome, {"accepted": list(accepted), "rejected": rejected}
 
     @staticmethod
     def _fail(state: ToolState, call: ToolCall, error: str) -> str:
@@ -236,8 +268,8 @@ TOOLS = (
     ),
     Tool(
         "show_trailer",
-        "Show the viewer the trailer of one candidate film, only when words cannot convey "
-        "its atmosphere.",
+        "Show the viewer the trailer of your best candidate film, when its look, atmosphere or "
+        "spectacle matters. Optional; call it before recommend.",
         ShowTrailerArgs,
         Toolbox.show_trailer,
     ),
@@ -267,7 +299,9 @@ def tool_spec(name: str, description: str, args_model: type[BaseModel]) -> dict:
     """An OpenAI tool definition whose parameters are the pydantic model's JSON schema.
 
     The same model validates the arguments, so schema and validation cannot drift apart.
-    `$ref`s are inlined and titles dropped: plain JSON Schema that every server accepts.
+    `$ref`s are inlined, optional fields lose their `null` alternative (absence from
+    `required` already says "optional") and titles are dropped: plain JSON Schema that every
+    server, and a small model, reads without surprises.
     """
     schema = args_model.model_json_schema()
     definitions = schema.pop("$defs", {})
@@ -276,6 +310,10 @@ def tool_spec(name: str, description: str, args_model: type[BaseModel]) -> dict:
         if isinstance(node, dict):
             if "$ref" in node:
                 return inline(definitions[node["$ref"].rsplit("/", 1)[-1]])
+            options = [o for o in node.get("anyOf", []) if o != {"type": "null"}]
+            if len(options) == 1:  # `X | None`: keep X and the field's own keys, drop null
+                rest = {k: v for k, v in node.items() if k not in ("anyOf", "default")}
+                return inline({**options[0], **rest})
             return {
                 k: inline(v) for k, v in node.items() if not (k == "title" and isinstance(v, str))
             }

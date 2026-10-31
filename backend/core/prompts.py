@@ -1,15 +1,26 @@
-"""What the model is told: the system prompt and the service notes the agent adds.
+"""What the model is told: the system prompt, with the conversation so far folded into it.
 
-The prompt is English, the language instruction-tuned models follow most reliably; the model
-answers in the language of the viewer's latest message. Spec: docs/03-llm-and-tool-calling.md.
+Written for a small local model first (Gemma 4 E4B in Ollama, docs/03-llm-and-tool-calling.md §3.10):
+a fixed procedure of numbered steps, one per tool, with concrete triggers instead of judgement calls,
+one structured final call, and the earlier turns as context in the system prompt rather than as
+assistant messages that a small model would imitate in prose.
+English, the language instruction-tuned models follow most reliably; the model answers, and writes
+its search query, in the language of the viewer's latest message: the multilingual embedding model
+matches it to the English catalogue (docs/07-embedding-model.md).
 """
 
 from __future__ import annotations
 
+import re
+import textwrap
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
 Gender = Literal["female", "male", "other"]
+HISTORY_MESSAGES = 8  # earlier messages shown to the model; older ones are dropped
+HISTORY_CHARS = 400  # per message
+SAME_LANGUAGE = "the language of the viewer's latest message"
 
 
 @dataclass(frozen=True)
@@ -22,60 +33,103 @@ class Viewer:
 
 
 SYSTEM_PROMPT = """\
-You are MovieHarbor, a friendly and knowledgeable film consultant (a master's thesis project).
-Your goal is to find the films from the service's catalogue that best match what the viewer wants.
-Talk like a film lover giving a friend honest, warm advice.
+You are MovieHarbor, a friendly film adviser. You recommend films ONLY from the service's catalogue,
+which you can reach only through the search_movies tool.
 
-LANGUAGE: answer in the language of the viewer's latest message. An English message gets an
-English answer, a Ukrainian message a Ukrainian answer, any other language that language.
-This applies to `reply`, to every `why`{trailer_language}. Only the `query` of search_movies is
-always English, because the catalogue is English.
-
-Viewer:
-- age: {age}
-- gender: {gender}
-- genre filter: {genre}
-
-How to work:
-1. Always call search_movies first. Write the query in English as a description of the wanted
-   film: plot, themes, mood, style. If the viewer names a film ("something like Blade Runner"),
-   describe that film's key traits instead of repeating its title. Take the whole conversation
-   into account: a follow-up such as "something lighter" refines the earlier request.
-2. You see only the search results, never the whole catalogue. If the candidates do not fit, or a
-   film you expected (for example, one the viewer named) is not among them, search again with a
-   different description (at most twice). Never claim that a film is missing from the catalogue;
-   say only that the search did not bring it up.
-3. Choose 1-5 films ONLY from the search results, best first. Never invent films or change ids.
-   Do not repeat films you already recommended in this conversation unless asked.
-4. Treat age and gender only as soft hints and avoid stereotypes. For viewers under 16, avoid
-   films with graphic violence or explicit content.
+Always answer with tool calls, never with plain text:
+1. Call search_movies with a description of the wanted film in the viewer's own language (do not
+   translate it; the catalogue search understands every language): plot, themes, mood, style.
+   If the viewer names a film ("like Blade Runner"), describe its traits and add its title.
+   If the viewer refines an earlier request ("something lighter"), describe the combined wish.
+2. If the results do not fit, call search_movies once more with a different description.
 {trailer_rule}
-6. Finish by calling recommend: `reply` is a short, lively introduction (1-3 sentences) without
-   listing the films; start with substance, not a stock opener such as "Oh, I understand you!".
-   Each `why` says in 1-2 sentences why the film suits this request.
-7. If the request is not about films, answer briefly and steer back to choosing a film
-   (recommend with an empty list of picks).
+4. Call recommend exactly once:
+   - picks: usually 3 films (up to 5 if the viewer asks for more), best first, using ONLY ids from
+     the latest search results and none you already recommended in this conversation;
+   - why: one sentence per film on why it fits this request;
+   - reply: one or two lively sentences that introduce the picks without listing them;
+   - if the request is not about films: empty picks and a reply that steers back to films.
 
-Remember: write `reply`, `why`{trailer_language} in the language of the viewer's latest message.
-"""
+{language_rule}
+Never invent films. Never claim that a film is missing from the catalogue: you see only search
+results, so say at most that the search did not bring it up.
+Treat age and gender only as soft hints and avoid stereotypes. For viewers under 16, avoid films with
+graphic violence or explicit content.
+
+Viewer: age {age}; gender {gender}; genre filter {genre}.
+{history}
+Answer in {language}."""
 
 TRAILER_RULE = """\
-5. Call show_trailer only when words cannot convey a film's atmosphere: a distinctive visual
-   aesthetic (neon noir, bleak cyberpunk), a director's style, the dynamics of fight scenes, or the
-   viewer recalls a film by a visual scene. `reason` is one short sentence on what exactly to
-   watch for. At most one trailer per answer; if you show one, invite the viewer in `reply` to
-   watch it below."""
+3. Decide whether a trailer helps: call show_trailer for your best candidate when the viewer wants
+   to see a film, or when the request is about atmosphere, visual style, landscapes, spectacle or
+   action; otherwise skip it. Its reason is one sentence on what to watch for. If you show one,
+   invite the viewer in recommend's reply to watch it below."""
 
 NO_TRAILER_RULE = """\
-5. Videos are unavailable: rely on your descriptions and do not mention trailers."""
+3. Videos are unavailable: never mention trailers."""
 
 
-def build_system_prompt(viewer: Viewer, trailers: bool) -> str:
+def build_system_prompt(
+    viewer: Viewer,
+    trailers: bool,
+    history: Sequence[tuple[str, str]] = (),
+    language: str = SAME_LANGUAGE,
+) -> str:
+    """The system prompt for one turn; `history` holds the earlier (role, text) messages."""
     unknown = "not specified"
     return SYSTEM_PROMPT.format(
         age=viewer.age or unknown,
         gender=viewer.gender or unknown,
         genre=f"{viewer.genre} (search is already limited to it)" if viewer.genre else "any",
-        trailer_language=" and the trailer `reason`" if trailers else "",
         trailer_rule=TRAILER_RULE if trailers else NO_TRAILER_RULE,
+        language_rule=language_rule(language, trailers),
+        history=history_block(history),
+        language=language,
     )
+
+
+def language_rule(language: str, trailers: bool) -> str:
+    """What to write in which language. The Ukrainian style rules appear only for a Ukrainian answer:
+    present in an English answer's prompt, they pull a small model into Ukrainian."""
+    texts = "reply, why and the show_trailer reason" if trailers else "reply and why"
+    rule = (
+        f"Write {texts} in {language}, and the search_movies query too. Keep film titles exactly as "
+        "in the search results; never translate them."
+    )
+    if language == "Ukrainian":
+        rule += (
+            " Write natural modern Ukrainian, address the viewer as «ви» and avoid calques from "
+            "Russian or English."
+        )
+    return rule
+
+
+def reply_language(text: str) -> str:
+    """The language to answer in, named for the model: a small model follows a named language far
+    more reliably than "the viewer's language". Cyrillic means Ukrainian (the interface's language),
+    Latin means English; anything else is left to the model."""
+    cyrillic = len(re.findall(r"[а-яіїєґё]", text, re.IGNORECASE))
+    latin = len(re.findall(r"[a-z]", text, re.IGNORECASE))
+    if cyrillic > latin:
+        return "Ukrainian"
+    return "English" if latin else SAME_LANGUAGE
+
+
+def history_block(history: Sequence[tuple[str, str]]) -> str:
+    """The latest HISTORY_MESSAGES earlier messages as context lines, or nothing."""
+    recent = history[-HISTORY_MESSAGES:]
+    if not recent:
+        return ""
+    lines = [
+        f"{'Viewer' if role == 'user' else 'You'}: "
+        + textwrap.shorten(text, HISTORY_CHARS, placeholder=" …")
+        for role, text in recent
+    ]
+    return "\nThe conversation so far (oldest first):\n" + "\n".join(lines) + "\n"
+
+
+TOOL_REMINDER = (
+    "Reply with a tool call, not with text: search_movies if you have not searched yet, "
+    "otherwise recommend."
+)
