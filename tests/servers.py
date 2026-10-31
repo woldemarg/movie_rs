@@ -47,9 +47,8 @@ def scripted_reply(messages: list[dict]) -> dict:
     if found is None:
         return tool_reply("search_movies", query=user)
     if "трейлер" in user.lower() and found and "show_trailer" not in called:
-        return tool_reply(
-            "show_trailer", movie_id=found[0]["id"], reason="Зверніть увагу на світло."
-        )
+        reason = "Зверніть увагу на світло."
+        return tool_reply("show_trailer", movie_id=found[0]["id"], reason=reason)
     picks = [{"movie_id": m["id"], "why": f"Пасує до запиту: {user}"} for m in found[:3]]
     return tool_reply("recommend", reply="Ось що я раджу.", picks=picks)
 

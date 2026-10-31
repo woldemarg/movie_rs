@@ -206,8 +206,15 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Embedding model cache (scripts/build_catalog.py, backend/adapters/embedder.py)
-models/
+# Model caches, downloaded once (models/embeddings: backend/adapters/embedder.py;
+# models/ollama: compose.yaml). The folders stay in git through their .gitkeep.
+models/*/*
+!models/*/.gitkeep
 
 # pytest basetemp (pyproject.toml)
 .pytest_tmp/
+
+# The catalogue is generated from data/raw (python -m scripts.prepare_data)
+data/movies.json
+data/movie_vectors.npy
+data/*.tmp

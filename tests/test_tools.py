@@ -16,11 +16,11 @@ def run(toolbox: Toolbox, state: ToolState, name: str, **arguments) -> dict:
     return json.loads(toolbox.run(tool_call(name, **arguments), state))
 
 
-def test_specs_are_plain_json_schema_for_every_available_tool(toolbox, movies):
+def test_specs_are_plain_json_schema_for_every_available_tool(toolbox):
     names = [spec["function"]["name"] for spec in toolbox.specs]
     assert names == ["search_movies", "show_trailer", "recommend"]
     text = json.dumps(toolbox.specs)
-    assert "$ref" not in text and "$defs" not in text
+    assert "$ref" not in text and "$defs" not in text and "anyOf" not in text and "null" not in text
     recommend = toolbox.specs[2]["function"]["parameters"]
     assert recommend["required"] == ["reply", "picks"]
     assert recommend["properties"]["picks"]["items"]["required"] == ["movie_id", "why"]
@@ -64,9 +64,8 @@ def test_show_trailer_needs_a_searched_movie_with_a_trailer(toolbox):
     run(toolbox, state, "search_movies", query="ghosts")
     assert run(toolbox, state, "show_trailer", movie_id=2, reason="look") == {"status": "not_found"}
     assert state.trailer is None
-    assert run(toolbox, state, "show_trailer", movie_id=3, reason="Неонове світло") == {
-        "status": "shown"
-    }
+    shown = run(toolbox, state, "show_trailer", movie_id=3, reason="Неонове світло")
+    assert shown == {"status": "shown"}
     assert (state.trailer.movie.id, state.trailer.youtube_key) == (3, "yt-3")
     assert state.trailer.reason == "Неонове світло"
 
@@ -149,3 +148,14 @@ def test_the_largest_valid_recommend_fits_the_default_token_budget():
 
     # Cyrillic averages above 2 characters per token; 2 keeps the bound conservative.
     assert len(largest) / 2 <= Settings.model_fields["llm_max_tokens"].default
+
+
+def test_steps_carry_the_ranked_candidates_and_the_choice_for_the_trace(toolbox):
+    state = ToolState(genre=None)
+    run(toolbox, state, "search_movies", query="ghosts haunt a house")
+    run(toolbox, state, "recommend", reply="Ось.", picks=[{"movie_id": 3, "why": "атмосфера"}])
+
+    ranked = state.steps[0].data["candidates"]
+    assert [c["title"] for c in ranked][:2] == ["The Haunting", "Ghost Ship"]
+    assert ranked[0]["score"] >= ranked[1]["score"]
+    assert state.steps[1].data == {"accepted": [3], "rejected": []}

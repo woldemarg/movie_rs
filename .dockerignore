@@ -1,0 +1,17 @@
+# The backend image is built from the repository root (backend/Dockerfile); the frontend image uses
+# frontend/ as its own context. .env stays out: secrets reach the containers as environment variables.
+.env
+.git
+.github
+.claude
+.venv
+.pytest_tmp
+**/__pycache__
+frontend
+models/ollama
+data/eval
+data/*.tmp
+docs
+notebooks
+tests
+*.md

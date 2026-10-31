@@ -1,7 +1,7 @@
 """Measure retrieval quality on the curated benchmark (data/eval/retrieval_queries.json).
 
-Run from the repository root: `python -m scripts.evaluate_retrieval`. It prints the Markdown
-tables quoted in docs/06-evaluation.md (the spec of every metric below).
+Run from the repository root: `python -m scripts.evaluate_retrieval`. It prints the known-item and
+thematic tables and the query latency quoted in docs/06-evaluation.md (the spec of every metric below).
 """
 
 import json
@@ -19,8 +19,8 @@ BENCHMARK = ROOT / "data" / "eval" / "retrieval_queries.json"
 CUTOFFS = (1, 5, SEARCH_K)  # SEARCH_K: the candidates one search hands to the LLM
 QUERY_FORMS = {
     "title_uk": "назва українською",
-    "description_uk": "опис українською",
-    "description_en": "опис англійською (як формулює LLM)",
+    "description_uk": "опис українською (форма запиту агента)",
+    "description_en": "опис англійською (з перекладом)",
 }
 
 
