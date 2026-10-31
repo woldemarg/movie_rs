@@ -1,6 +1,5 @@
 # MovieHarbor
 
-[![ci](https://github.com/woldemarg/movie_rs/actions/workflows/ci.yml/badge.svg)](https://github.com/woldemarg/movie_rs/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Діалоговий сервіс рекомендацій фільмів на основі великої мовної моделі.** Proof of concept магістерської роботи.
@@ -68,7 +67,7 @@ flowchart TB
 Потрібні [uv](https://docs.astral.sh/uv/) і Python 3.12.
 
 ```bash
-git clone https://github.com/woldemarg/movie_rs.git && cd movie_rs
+git clone <адреса-репозиторію> movie_rs && cd movie_rs
 uv sync
 cp .env.sample .env        # впишіть LLM_API_KEY (OpenRouter) і, за бажання, TMDB_API_KEY
 uv run python -m backend   # http://127.0.0.1:8000 — вебінтерфейс, /docs — API
