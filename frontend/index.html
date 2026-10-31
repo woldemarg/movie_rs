@@ -17,9 +17,14 @@
         <p class="brand-sub" id="catalog-info">Кінорадник на основі LLM</p>
       </div>
     </div>
-    <div class="source" role="radiogroup" aria-label="Джерело моделі" id="source-switch"></div>
+    <div class="header-actions">
+      <div class="source" role="radiogroup" aria-label="Джерело моделі" id="source-switch"></div>
+      <button type="button" class="ghost panel-toggle" id="panel-toggle" aria-controls="trace-panel" aria-expanded="false">Хід роботи</button>
+    </div>
   </header>
 
+  <div class="layout">
+  <div class="chat">
   <main id="thread" class="thread" aria-live="polite">
     <section class="welcome" id="welcome">
       <h2>Що подивимось сьогодні?</h2>
@@ -52,12 +57,20 @@
     </div>
     <form id="ask-form" class="ask">
       <label for="question" class="visually-hidden">Ваш запит</label>
-      <textarea id="question" rows="1" maxlength="4000" placeholder="Наприклад: щось атмосферне на кшталт «Того, хто біжить по лезу»" required></textarea>
+      <textarea id="question" rows="1" maxlength="4000" placeholder="Наприклад: щось атмосферне на кшталт «Blade Runner»" required></textarea>
       <button type="submit" id="send" aria-label="Надіслати">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>
       </button>
     </form>
   </footer>
+  </div>
+
+  <aside id="trace-panel" class="trace-panel" aria-label="Хід роботи агента">
+    <h2>Хід роботи агента</h2>
+    <p class="trace-empty" id="trace-empty">Кроки агента для поточного запиту: пошук, кандидати, трейлер, вибір.</p>
+    <div id="trace-log" aria-live="polite"></div>
+  </aside>
+  </div>
 
   <script src="app.js" type="module"></script>
 </body>

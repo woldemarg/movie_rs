@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -130,3 +132,28 @@ def test_validation_errors_carry_one_ukrainian_message_naming_the_field(stub):
 
     assert isinstance(detail, str)
     assert detail.startswith("Некоректний запит") and "viewer.age" in detail
+
+
+def test_the_stream_reports_each_step_then_the_answer(stub):
+    body = {"provider": "local", "messages": [{"role": "user", "content": "ghosts in a house"}]}
+
+    with make_client(stub).stream("POST", "/api/recommend/stream", json=body) as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/x-ndjson")
+        events = [json.loads(line) for line in response.iter_lines() if line]
+
+    assert [e["type"] for e in events] == ["step", "step", "answer"]
+    assert events[0]["tool"] == "search_movies" and events[0]["arguments"]["query"]
+    assert len(events[-1]["picks"]) == 3 and events[-1]["message"]["role"] == "assistant"
+
+
+def test_the_stream_validates_before_streaming_and_reports_model_failures_as_an_event(stub):
+    client = make_client(stub, local_llm_base_url="http://127.0.0.1:9/v1")
+    bad = {"provider": "local", "messages": []}
+    assert client.post("/api/recommend/stream", json=bad).status_code == 422
+
+    body = {"provider": "local", "messages": [{"role": "user", "content": "щось смішне"}]}
+    with client.stream("POST", "/api/recommend/stream", json=body) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line]
+
+    assert events[-1]["type"] == "error" and "недоступний" in events[-1]["detail"]

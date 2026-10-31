@@ -57,8 +57,6 @@ def last_request(stub) -> dict:
 
 def test_full_conversation_with_cards_trace_follow_up_and_trailer(page, stub):
     source = page.locator("#source-switch")
-    expect(source.locator('[data-provider="openrouter"]')).to_have_attribute("aria-checked", "true")
-    source.locator('[data-provider="local"]').click()
     expect(source.locator('[data-provider="local"]')).to_have_attribute("aria-checked", "true")
     page.select_option("#genre", "Horror")
 
@@ -71,20 +69,26 @@ def test_full_conversation_with_cards_trace_follow_up_and_trailer(page, stub):
         expect(cards.nth(i).locator(".tag", has_text="Жахи")).to_have_count(1)
         expect(cards.nth(i).locator(".why")).to_contain_text("Пасує до запиту")
     expect(cards.first.locator(".poster-fallback")).to_be_visible()  # the blocked poster falls back
-    page.locator(".trace summary").last.click()
-    steps = page.locator(".trace").last.locator("li")
-    expect(steps).to_have_count(2)
-    expect(steps.first).to_contain_text("search_movies «ghosts haunt an old house»")
-    expect(page.locator(".trace").last).to_contain_text("stub-local")
+    trace = page.locator("#trace-panel .trace").last  # the side panel, one entry per turn
+    expect(trace).to_be_visible()
+    expect(trace).to_contain_text("stub-local")
+    expect(trace.locator(".stage")).to_have_count(3)  # query, candidates, choice
+    expect(trace).to_contain_text("«ghosts haunt an old house»")
+    expect(trace.locator(".candidates li")).to_have_count(12)  # the search's shortlist
+    expect(trace.locator(".candidates .chosen")).to_have_count(3)  # ✓ the model's picks
+    expect(trace).to_contain_text("Обрано 3 з 12 · місця за схожістю: 1, 2, 3")
+    expect(trace).not_to_contain_text("undefined")
+    expect(trace).not_to_contain_text("false")
     assert last_request(stub)["auth"] is None
 
     send(page, "А покажи трейлер")
 
     trailer = page.locator(".trailer")
     expect(trailer).to_contain_text("Зверніть увагу на світло.")
-    sent = last_request(stub)["body"]["messages"]
-    remembered = [m for m in sent if m["role"] == "assistant" and "[recommended:" in m["content"]]
-    assert remembered, "the follow-up must carry the previous answer"
+    expect(page.locator("#trace-panel .trace")).to_have_count(1)  # refreshed, not appended
+    expect(page.locator("#trace-panel .trace")).to_contain_text("show_trailer")
+    system = last_request(stub)["body"]["messages"][0]["content"]
+    assert "[recommended:" in system, "the follow-up must carry the previous answer"
     trailer.locator(".video-thumb").click()
     expect(trailer.locator("iframe")).to_have_attribute(
         "src", re.compile(r"youtube-nocookie\.com/embed/stub\d+")
@@ -126,25 +130,37 @@ def test_a_suggestion_starts_the_chat_and_new_chat_resets_it(page):
     expect(page.locator(".msg.user")).to_have_count(1)
     expect(page.locator(".card")).to_have_count(3)
     expect(page.locator("#welcome")).to_be_hidden()
+    expect(page.locator("#trace-panel .trace")).to_have_count(1)
     page.get_by_role("button", name="Нова розмова").click()
     expect(page.locator("#welcome")).to_be_visible()
     expect(page.locator(".msg")).to_have_count(0)
+    expect(page.locator("#trace-panel .trace")).to_have_count(0)
 
 
-def test_a_broken_config_shows_an_error_and_disables_asking(browser, app_url):
+def test_a_backend_still_starting_disables_asking_until_it_answers(browser, app_url):
     page = browser.new_page()
     page.route(LOCAL_ONLY, lambda route: route.abort())
-    page.route("**/api/config", lambda route: route.fulfill(status=500, body="{}"))
+    page.route("**/api/config", lambda route: route.fulfill(status=502, body="Bad Gateway"))
 
     page.goto(app_url)
 
-    expect(page.locator(".msg.error")).to_contain_text("Не вдалося з'єднатися")
+    expect(page.locator(".msg.error")).to_contain_text("ще запускається")
     expect(page.locator("#send")).to_be_disabled()
+    page.unroute("**/api/config")  # the backend comes up
+    expect(page.locator(".msg.error")).to_have_count(0, timeout=10_000)
+    expect(page.locator("#send")).to_be_enabled()
+    expect(page.locator("#welcome")).to_be_visible()
     page.close()
 
 
 def test_an_unexpected_answer_body_is_reported_as_such_not_as_a_lost_connection(page):
-    page.route("**/api/recommend", lambda route: route.fulfill(status=200, json={"reply": "x"}))
+    malformed = '{"type": "answer", "reply": "x"}\n'  # no picks, message, trace
+    page.route(
+        "**/api/recommend/stream",
+        lambda route: route.fulfill(
+            status=200, body=malformed, content_type="application/x-ndjson"
+        ),
+    )
 
     send(page, "space adventure")
 

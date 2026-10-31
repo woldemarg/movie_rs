@@ -12,12 +12,14 @@ from fastembed import TextEmbedding
 
 from backend.core.catalog import Embed
 
-MODELS_DIR = Path(__file__).resolve().parents[2] / "models"
+# The project-local cache (gitignored): downloaded once, then reused by every run and copied
+# into the Docker image (Dockerfile).
+MODELS_DIR = Path(__file__).resolve().parents[2] / "models" / "embeddings"
 DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 
 def load_embedder(model_name: str) -> Embed:
-    """Load the model once (downloaded into models/ on first use) and return the embed function."""
+    """Load the model (downloaded into models/embeddings/ on first use); return the embed function."""
     model = TextEmbedding(model_name, cache_dir=str(MODELS_DIR))
     lock = threading.Lock()  # requests run in a thread pool; one ONNX run at a time
 
@@ -27,3 +29,8 @@ def load_embedder(model_name: str) -> Embed:
         return vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
 
     return embed
+
+
+if __name__ == "__main__":  # python -m backend.adapters.embedder: fill the cache once
+    load_embedder(DEFAULT_MODEL)
+    print(f"{DEFAULT_MODEL} is cached in {MODELS_DIR}")

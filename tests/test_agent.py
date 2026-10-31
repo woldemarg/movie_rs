@@ -35,7 +35,7 @@ def test_agent_searches_then_returns_grounded_picks(toolbox):
     assert first_messages[0]["role"] == "system"
     system = first_messages[0]["content"]
     assert "30" in system and "Horror" in system
-    assert "language of the viewer's latest message" in system
+    assert "in Ukrainian" in system  # named from the script of the viewer's message
     assert first_messages[1:] == [{"role": "user", "content": ASK[0].content}]
     assert [t["function"]["name"] for t in tools] == ["search_movies", "show_trailer", "recommend"]
     second_messages, _ = chat.requests[1]
@@ -52,12 +52,14 @@ def test_agent_shows_a_trailer_when_the_model_asks_for_one(toolbox):
             tool_call("recommend", reply="Ось.", picks=[{"movie_id": 3, "why": "атмосфера"}]),
         ),
     )
+    seen: list[str] = []
 
-    result = run_agent(chat, toolbox, ASK, Viewer())
+    result = run_agent(chat, toolbox, ASK, Viewer(), on_step=lambda s: seen.append(s.tool))
 
     assert result.trailer.youtube_key == "yt-3"
     assert result.trailer.reason == "Подивіться на темні коридори."
     assert [p.movie.id for p in result.picks] == [3]
+    assert seen == ["search_movies", "show_trailer", "recommend"]
 
 
 def test_prose_makes_the_next_call_require_a_tool_without_a_fake_user_turn(toolbox):
@@ -74,8 +76,9 @@ def test_prose_makes_the_next_call_require_a_tool_without_a_fake_user_turn(toolb
     assert [p.movie.id for p in result.picks] == [2]
     assert chat.tool_choices == ["auto", "auto", "required"]
     sent = chat.requests[2][0]
-    assert [m["role"] for m in sent].count("user") == 1
-    assert sent[-1] == {"role": "assistant", "content": "Раджу The Haunting!"}
+    assert [m["role"] for m in sent].count("user") == 1  # nothing written in the viewer's name
+    assert sent[-2] == {"role": "assistant", "content": "Раджу The Haunting!"}
+    assert sent[-1]["role"] == "system" and "tool call" in sent[-1]["content"]
 
 
 def test_a_turn_never_ends_in_prose(toolbox):
@@ -109,16 +112,26 @@ def test_agent_gives_up_after_the_call_budget(toolbox):
         run_agent(ScriptedChat(*loop), toolbox, ASK, Viewer())
 
 
-def test_agent_sends_recent_history_starting_with_a_user_turn(toolbox):
+def test_earlier_turns_reach_the_model_as_context_not_as_messages(toolbox):
     history = [Message("user" if i % 2 == 0 else "assistant", f"m{i}") for i in range(15)]
     chat = search_then_recommend()
 
     run_agent(chat, toolbox, history, Viewer())
 
-    sent = chat.requests[0][0][1:]
-    assert sent[0] == {"role": "user", "content": "m6"}
-    assert sent[-1] == {"role": "user", "content": "m14"}
-    assert len(sent) <= 10
+    system, *rest = chat.requests[0][0]
+    assert rest == [{"role": "user", "content": "m14"}]
+    assert "Viewer: m6" in system["content"] and "You: m13" in system["content"]
+    assert "m5" not in system["content"]
+
+
+def test_each_tool_call_is_reported_as_it_runs(toolbox):
+    seen: list[str] = []
+
+    run_agent(
+        search_then_recommend(), toolbox, ASK, Viewer(), on_step=lambda s: seen.append(s.tool)
+    )
+
+    assert seen == ["search_movies", "recommend"]
 
 
 def test_history_entry_remembers_the_picks_for_the_next_turn(toolbox):

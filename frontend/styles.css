@@ -81,6 +81,30 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* Layout: the chat column and the agent's trace panel on the right */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; min-height: 0; }
+.chat { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
+.header-actions { display: flex; gap: 10px; align-items: center; }
+.panel-toggle { display: none; }
+
+.trace-panel {
+  overflow-y: auto; padding: 16px; background: var(--panel); border-left: 1px solid var(--line);
+}
+.trace-panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.trace-empty { font-size: 13px; color: var(--muted); margin: 0; }
+#trace-log { display: grid; gap: 12px; }
+
+@media (max-width: 960px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .panel-toggle { display: inline-block; }
+  .trace-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 92vw); z-index: 10;
+    transform: translateX(100%); transition: transform 0.2s ease; box-shadow: var(--shadow);
+  }
+  body.panel-open .trace-panel { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .trace-panel { transition: none; } }
+
 /* Conversation */
 .thread { overflow-y: auto; padding: 24px 16px 8px; }
 .thread > * { max-width: 860px; margin: 0 auto 16px; }
@@ -104,7 +128,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   max-width: 80%; padding: 10px 14px; border-radius: var(--radius) var(--radius) 4px var(--radius);
   background: var(--user); color: var(--user-fg); white-space: pre-wrap;
 }
-.msg.assistant.pending { flex-direction: row; align-items: center; color: var(--muted); }
+.msg.assistant.pending { flex-direction: row; align-items: center; gap: 10px; color: var(--muted); }
 .msg.error {
   align-items: flex-start; padding: 12px 14px; border-radius: var(--radius);
   background: var(--danger-soft); color: var(--danger);
@@ -139,7 +163,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .rating { font-weight: 600; color: var(--star); }
 .tag { padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); }
 .why { font-size: 14px; }
-.overview summary, .trace summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.overview summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .overview p { margin-top: 6px; font-size: 13px; color: var(--muted); }
 
 /* Trailer: a thumbnail until the viewer presses play, so YouTube loads only on demand */
@@ -161,10 +185,34 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .video-thumb:hover .play { background: var(--accent); }
 
 /* How it works: the agent's trace */
-.trace { font-size: 13px; color: var(--muted); }
-.trace p { margin: 6px 0; }
-.trace ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
-.trace code { color: var(--fg); font-weight: 600; }
+/* One turn in the trace panel, live while the answer is prepared */
+.trace {
+  font-size: 13px; color: var(--muted); padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg);
+}
+.trace h3 { margin: 0; font-size: 13px; color: var(--fg); font-weight: 600; }
+.trace-head { margin: 2px 0 6px; }
+.trace code { color: var(--muted); font-size: 11px; margin-left: auto; }
+.stage { margin-top: 10px; display: grid; gap: 3px; }
+.stage-title { display: flex; gap: 6px; align-items: baseline; color: var(--fg); font-weight: 600; }
+.stage-no {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+  font-size: 11px; background: var(--accent-soft); color: var(--accent);
+}
+.stage p { margin: 0; }
+.trace .decision { color: var(--fg); }
+.candidates { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; font-size: 12px; }
+.candidates li {
+  display: grid; grid-template-columns: 18px minmax(0, 1fr) 54px 32px 26px; gap: 6px; align-items: center;
+}
+.candidates .rank, .candidates .score { color: var(--muted); font-variant-numeric: tabular-nums; }
+.candidates .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.candidates .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.candidates .bar i { display: block; height: 100%; background: var(--muted); opacity: 0.6; }
+.candidates .chosen { color: var(--fg); font-weight: 600; }
+.candidates .chosen .bar i { background: var(--accent); opacity: 1; }
+.candidates .mark { color: var(--accent); font-weight: 600; }
+
 
 /* Composer */
 .composer { padding: 10px 16px 16px; background: var(--panel); border-top: 1px solid var(--line); }
