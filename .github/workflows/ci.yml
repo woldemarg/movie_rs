@@ -14,3 +14,13 @@ jobs:
       - run: uv sync --locked
       - run: uv run playwright install --with-deps chromium
       - run: uv run python scripts/check.py
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up -d --build --wait app
+      - run: curl -fsS http://127.0.0.1:8000/api/config | python3 -c "import json, sys; assert json.load(sys.stdin)['movies'] > 2000"
+      - run: curl -fsS http://127.0.0.1:8000/ | grep -q 'app.js'
+      - if: always()
+        run: docker compose logs app && docker compose down

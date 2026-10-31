@@ -1,0 +1,11 @@
+# The local model on an NVIDIA GPU (Docker Desktop with WSL2, or the NVIDIA Container Toolkit):
+#   docker compose -f compose.yaml -f compose.gpu.yaml --profile local up -d --build
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

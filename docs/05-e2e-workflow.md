@@ -24,7 +24,7 @@ flowchart TB
 
     subgraph files["Локальні файли"]
         data[("data/movies.json<br/>data/movie_vectors.npy")]
-        model[("models/<br/>ваги моделі ембедінгів")]
+        model[("models/embeddings/<br/>ваги моделі ембедінгів")]
     end
 
     subgraph external["Зовнішні сервіси"]
@@ -63,7 +63,7 @@ flowchart TB
 | TMDB image CDN `image.tmdb.org` | браузер | показ картки фільму | — | значок 🎬 замість постера |
 | YouTube `i.ytimg.com` | браузер | мініатюра трейлера у відповіді | — | порожня мініатюра |
 | YouTube `youtube-nocookie.com` | браузер | лише після натискання на трейлер | — | програвач не відкривається |
-| Hugging Face Hub (`Qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q`) | fastembed | перший запуск або побудова каталогу; далі з `models/` | — | без збереженої моделі бекенд не стартує |
+| Hugging Face Hub (`Qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q`) | fastembed | один раз; далі з кешу `models/embeddings/` (і в Docker-образі) | — | без збереженої моделі бекенд не стартує |
 | TMDB API `/movie/{id}` | `scripts/refresh_posters.py` | офлайн, після побудови каталогу | `TMDB_API_KEY` | лишається попередній шлях до постера |
 
 Дані глядача, які йдуть назовні: до LLM — текст розмови й необов'язкові вік, стать, жанр; до TMDB API — лише TMDB id фільму. Браузер звертається до CDN без даних глядача.
@@ -74,7 +74,7 @@ flowchart TB
 flowchart TB
     kaggle[("Kaggle: The Movies Dataset (CC0)<br/>data/raw/movies_metadata.csv")]
     build["python -m scripts.build_catalog<br/>відбір, рейтинг, ембедінги"]
-    hf["Hugging Face Hub<br/>модель ембедінгів → models/"]
+    hf["Hugging Face Hub<br/>модель ембедінгів → models/embeddings/"]
     catalog[("data/movies.json<br/>data/movie_vectors.npy")]
     posters["python -m scripts.refresh_posters<br/>актуальні постери"]
     tmdb["TMDB API /movie/{id}"]

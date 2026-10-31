@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # Trailers (optional).
     tmdb_api_key: SecretStr = SecretStr("")
     tmdb_base_url: str = "https://api.themoviedb.org/3"
+    # Server: loopback by default; the container sets HOST=0.0.0.0 (compose.yaml).
+    host: str = "127.0.0.1"
+    port: int = 8000
 
     def llm_profile(self, provider: Provider) -> LLMProfile | None:
         """The connection for a model source, or None when it is not configured."""

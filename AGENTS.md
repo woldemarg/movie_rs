@@ -29,7 +29,8 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 | `docs/` | the specification, one file per concern (`README.md` is the index, `images/` the screenshots) |
 | `notebooks/` | the notebook the project started from; reference only |
 | `tests/` | pytest suite; `doubles.py` holds the deterministic fakes (embedder, scripted LLM, trailers), `servers.py` the local stub of the LLM and TMDB servers |
-| `models/` | embedding-model cache, gitignored |
+| `models/` | model caches, downloaded once, contents gitignored: `embeddings/` (fastembed; copied into the Docker image), `ollama/` (local LLM weights; mounted into the `ollama` container) |
+| `Dockerfile`, `compose.yaml`, `compose.gpu.yaml`, `.dockerignore` | the containers: `app` (backend + UI) and the local model (`ollama`, profile `local`) |
 | `.env.sample` | the settings template |
 | `LICENSE` | MIT, for code and docs; the data keeps its own licences (README) |
 | `pyproject.toml`, `uv.lock`, `.python-version` | dependencies (exact versions in the lock), tool config, Python 3.12 |
@@ -64,7 +65,7 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 
 | Code | Spec |
 |---|---|
-| module boundaries, containers, key decisions | `docs/01-overview.md` |
+| module boundaries, containers, key decisions, deployment (`Dockerfile`, `compose*.yaml`) | `docs/01-overview.md` |
 | `scripts/build_catalog.py`, `scripts/refresh_posters.py`, `backend/core/catalog.py`, `backend/adapters/embedder.py`, `data/` | `docs/02-data-and-embeddings.md` |
 | `backend/core/agent.py`, `tools.py`, `prompts.py`, `backend/adapters/llm.py`, `tmdb.py`, `backend/settings.py`, `.env.sample` | `docs/03-llm-and-tool-calling.md` |
 | `frontend/`, `backend/api.py` | `docs/04-interface.md` |

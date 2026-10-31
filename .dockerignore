@@ -1,0 +1,17 @@
+# Only pyproject.toml, uv.lock, backend/, frontend/ and the built catalogue go into the image.
+# .env stays out: secrets reach the container as environment variables (compose.yaml).
+.env
+.git
+.github
+.claude
+.venv
+.pytest_tmp
+**/__pycache__
+models/ollama
+data/raw
+data/eval
+docs
+notebooks
+scripts
+tests
+*.md

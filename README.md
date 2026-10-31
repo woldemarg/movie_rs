@@ -73,13 +73,34 @@ cp .env.sample .env        # впишіть LLM_API_KEY (OpenRouter) і, за б
 uv run python -m backend   # http://127.0.0.1:8000 — вебінтерфейс, /docs — API
 ```
 
-Під час першого запуску завантажується модель ембедінгів (≈ 220 МБ, у `models/`).
+Під час першого запуску модель ембедінгів (≈ 220 МБ) завантажується в кеш проєкту `models/embeddings/` — один раз; звідти її бере й Docker-образ.
 
 - **Gemma 4 через OpenRouter:** ключ на https://openrouter.ai/keys → `LLM_API_KEY`.
-- **Локальна модель:** запустіть OpenAI-сумісний сервер з моделлю, що підтримує виклик інструментів. У LM Studio це, наприклад, `google/gemma-3-12b` (порт 1234). В Ollama — наприклад, `qwen3:8b` (`LOCAL_LLM_BASE_URL=http://127.0.0.1:11434/v1`). Назву моделі вкажіть у `LOCAL_LLM_MODEL`.
+- **Локальна модель:** запустіть OpenAI-сумісний сервер з моделлю, що підтримує виклик інструментів. У LM Studio це, наприклад, `google/gemma-3-12b` (порт 1234). В Ollama — наприклад, `gemma4:e4b` (`LOCAL_LLM_BASE_URL=http://127.0.0.1:11434/v1`). Назву моделі вкажіть у `LOCAL_LLM_MODEL`. Найпростіше — Docker Compose (нижче).
 - **Трейлери:** ключ TMDB на https://www.themoviedb.org/settings/api → `TMDB_API_KEY`. Без нього агент працює без інструмента `show_trailer`.
 
 Джерело моделі обирається перемикачем у шапці вебінтерфейсу. Усі змінні описано в [`.env.sample`](.env.sample).
+
+## Запуск у Docker
+
+Усі сервіси в контейнерах; потрібен лише Docker (Desktop) і файл `.env` з ключами.
+
+```bash
+cp .env.sample .env                                      # LLM_API_KEY, TMDB_API_KEY
+docker compose up -d --build                             # вебзастосунок; модель через OpenRouter
+docker compose --profile local up -d --build             # + локальна Gemma 4 в Ollama
+docker compose -f compose.yaml -f compose.gpu.yaml --profile local up -d --build   # те саме на GPU NVIDIA
+```
+
+Відкрийте http://127.0.0.1:8000.
+
+| Сервіс | Що робить |
+|---|---|
+| `app` | бекенд і вебінтерфейс; модель ембедінгів і каталог уже в образі |
+| `ollama` | локальний сервер моделі (профіль `local`) — «Локальна модель» у перемикачі |
+| `ollama-pull` | одноразово завантажує модель (`OLLAMA_MODEL`, за замовчуванням `gemma4:e4b`, ≈ 6,6 ГБ) у кеш проєкту `models/ollama/` |
+
+Подробиці: [огляд, §1.8](docs/01-overview.md#18-розгортання-docker-compose).
 
 ## Структура репозиторію
 
@@ -97,6 +118,7 @@ frontend/           вебінтерфейс: index.html, app.js, styles.css
 data/               raw/ — сирий набір; movies.json + movie_vectors.npy — каталог; eval/ — бенчмарк
 docs/               специфікація (8 розділів) і знімки екрана
 scripts/            check.py — контроль якості; build_catalog, refresh_posters, evaluate_retrieval
+Dockerfile, compose.yaml, compose.gpu.yaml   контейнери: застосунок і локальна модель (Ollama)
 tests/              модульні, API-, архітектурні та E2E-тести (Playwright)
 notebooks/          ноутбук, з якого почався проєкт (довідково)
 ```

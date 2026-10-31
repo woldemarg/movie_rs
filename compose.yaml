@@ -1,0 +1,60 @@
+# MovieHarbor in containers (docs/01-overview.md §1.8).
+#
+#   docker compose up -d --build                    web app; the model via OpenRouter (.env)
+#   docker compose --profile local up -d --build    plus a local Gemma 4 in Ollama
+#   add -f compose.yaml -f compose.gpu.yaml         to run the local model on an NVIDIA GPU
+#
+# Open http://127.0.0.1:8000. Keys come from .env (template: .env.sample).
+name: movieharbor
+
+services:
+  app:
+    build: .
+    image: movieharbor:latest
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # "Local model" in the UI means the ollama service below.
+      LOCAL_LLM_BASE_URL: http://ollama:11434/v1
+      LOCAL_LLM_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+        required: false # only with --profile local
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/config', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+
+  ollama:
+    profiles: [local]
+    image: ollama/ollama:0.40.13
+    environment:
+      # The agent's prompt, 12 candidates and tool results outgrow Ollama's default window,
+      # and Ollama truncates silently.
+      OLLAMA_CONTEXT_LENGTH: "8192"
+    volumes:
+      - ./models/ollama:/root/.ollama # the project cache: weights download once, survive rebuilds
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  ollama-pull:
+    # One-shot: downloads the model into models/ollama (a no-op once it is there), then exits.
+    profiles: [local]
+    image: ollama/ollama:0.40.13
+    environment:
+      OLLAMA_HOST: ollama:11434
+    command: ["pull", "${OLLAMA_MODEL:-gemma4:e4b}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
