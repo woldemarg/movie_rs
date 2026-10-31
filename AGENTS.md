@@ -10,7 +10,7 @@ MovieHarbor is a master-thesis proof of concept: an LLM-powered movie recommende
 python scripts/check.py
 ```
 
-The gate is `ruff check` + `ruff format --check` + the whole pytest suite; before the tests it builds the catalogue in `data/` if it is missing (`python -m scripts.prepare_data`, ~3 min once). Every change to Python, `pyproject.toml` or `uv.lock` ends with it passing; CI runs the same script.
+The gate is `ruff check` + `ruff format --check` + the whole pytest suite; before the tests it builds the catalogue in `data/` if it is missing (`python -m scripts.prepare_data`, ~3 min once; with `TMDB_API_KEY` in `.env` it also refreshes the posters through the TMDB API once). Every change to Python, `pyproject.toml` or `uv.lock` ends with it passing; CI runs the same script.
 
 - Do not silence it (`# noqa`, new ruff ignores, skipped or loosened tests). Fix the cause.
 - If a stage cannot run, say which one and why. Never imply it passed.

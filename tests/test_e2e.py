@@ -1,7 +1,7 @@
 """End to end: Chromium -> web UI -> API -> agent -> (stub) LLM and TMDB -> rendered answer.
 
 The backend is the real app on a local port; only the external services are stubbed, and the
-page may not reach anything but 127.0.0.1. Spec: docs/05-e2e-workflow.md.
+page may not reach anything but 127.0.0.1. Spec: docs/10-testing.md §10.6.
 """
 
 import re

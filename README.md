@@ -89,7 +89,7 @@ docker compose -f compose.yaml -f compose.gpu.yaml up -d --build   # GPU NVIDIA 
 | `ollama` | локальна модель `gemma4:e4b` — джерело за замовчуванням (`OLLAMA_MODEL` змінює модель) |
 | `ollama-init` | одноразово бере ваги з кешу `models/ollama/` або завантажує їх і прогріває модель |
 
-**OpenRouter як альтернатива.** Ключ на https://openrouter.ai/keys → `LLM_API_KEY` у `.env`, після чого в шапці інтерфейсу стане активним «OpenRouter» (`google/gemma-4-26b-a4b-it`).
+**OpenRouter як альтернатива.** Ключ на https://openrouter.ai/keys → `LLM_API_KEY` у `.env`; після перезапуску бекенду (`docker compose up -d`) у шапці інтерфейсу стане активним «OpenRouter» (`google/gemma-4-26b-a4b-it`).
 
 **Без Docker** (для розробки): [uv](https://docs.astral.sh/uv/), Python 3.12 і [Ollama](https://ollama.com).
 
@@ -145,8 +145,10 @@ notebooks/          ноутбук, з якого почався проєкт (�
 
 ```bash
 uv run playwright install chromium   # один раз, для E2E-тестів
-uv run python scripts/check.py       # ruff (зокрема складність ≤ 10), каталог (якщо немає, ≈ 3 хв), усі тести
+uv run python scripts/check.py       # ruff (складність ≤ 10), каталог (якщо немає, ≈ 3 хв), усі тести
 ```
+
+Перший запуск на свіжому клоні будує каталог; з `TMDB_API_KEY` у `.env` він ще й один раз оновлює постери через TMDB API.
 
 - **Модульні тести:** каталог, побудова даних, метрики, інструменти, агент, клієнт LLM, TMDB, налаштування.
 - **Тести API:** справжній HTTP-стек.

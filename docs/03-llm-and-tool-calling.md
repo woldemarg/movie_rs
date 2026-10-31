@@ -23,7 +23,7 @@ LLM у MovieHarbor — не генератор тексту «з пам'яті»
 | Модель за замовчуванням | `gemma4:e4b` | `google/gemma-4-26b-a4b-it` |
 | Ключ | не потрібен | `LLM_API_KEY` |
 | Налаштування | `LOCAL_LLM_BASE_URL` (`http://127.0.0.1:11434/v1`), `LOCAL_LLM_MODEL`; у Docker — `OLLAMA_MODEL` | `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`, `LLM_PROVIDER_ORDER` |
-| Доступність в інтерфейсі | завжди | лише коли задано ключ |
+| Доступність в інтерфейсі | коли сервер уже перелічує модель (`ready`) | лише коли задано ключ |
 
 Спільні параметри генерації:
 
