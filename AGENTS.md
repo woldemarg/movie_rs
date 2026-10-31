@@ -26,11 +26,12 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 | `frontend/` | the web UI: `index.html`, `app.js`, `styles.css`; static, no build step, served by the backend |
 | `data/` | `raw/movies_metadata.csv` (the public source), `movies.json` + `movie_vectors.npy` (the built catalogue), `eval/` (the retrieval benchmark) |
 | `scripts/` | `check.py` (the gate), `build_catalog.py`, `refresh_posters.py`, `evaluate_retrieval.py` |
-| `docs/` | the specification, one file per concern |
+| `docs/` | the specification, one file per concern (`README.md` is the index, `images/` the screenshots) |
 | `notebooks/` | the notebook the project started from; reference only |
 | `tests/` | pytest suite; `doubles.py` holds the deterministic fakes (embedder, scripted LLM, trailers), `servers.py` the local stub of the LLM and TMDB servers |
 | `models/` | embedding-model cache, gitignored |
 | `.env.sample` | the settings template |
+| `LICENSE` | MIT, for code and docs; the data keeps its own licences (README) |
 | `pyproject.toml`, `uv.lock`, `.python-version` | dependencies (exact versions in the lock), tool config, Python 3.12 |
 
 ## Boundaries
@@ -46,6 +47,7 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 - `backend/core/` never imports FastAPI or an HTTP client; it reaches the outside world only through what `api.py` passes in (adapters, the embed function).
 - Parse outside data once, where it enters (HTTP request, LLM reply, CSV row), then trust it inside. Keep business logic in pure functions.
 - One module, one job. No dead code, speculative flags, wrappers around a single call, or section banners. Prefer deleting a mechanism to adding a flag.
+- Every function stays at McCabe complexity ≤ 10 (ruff `C90`, part of the gate): split it rather than raise the limit.
 - User-facing errors are clear Ukrainian messages. They never carry secrets, so never echo raw HTTP-client exceptions (their URLs can hold keys).
 - Language: English for code, comments, docstrings and the LLM prompts (the model answers in the viewer's language). Ukrainian for the UI, user-facing errors, `README.md`, `docs/` and PR descriptions.
 
@@ -62,14 +64,17 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 
 | Code | Spec |
 |---|---|
+| module boundaries, containers, key decisions | `docs/01-overview.md` |
 | `scripts/build_catalog.py`, `scripts/refresh_posters.py`, `backend/core/catalog.py`, `backend/adapters/embedder.py`, `data/` | `docs/02-data-and-embeddings.md` |
 | `backend/core/agent.py`, `tools.py`, `prompts.py`, `backend/adapters/llm.py`, `tmdb.py`, `backend/settings.py`, `.env.sample` | `docs/03-llm-and-tool-calling.md` |
 | `frontend/`, `backend/api.py` | `docs/04-interface.md` |
 | the request's path across modules and external services, `tests/` (layers, stubs, e2e) | `docs/05-e2e-workflow.md` |
 | `scripts/evaluate_retrieval.py`, `data/eval/` | `docs/06-evaluation.md` |
+| the embedding model (`DEFAULT_MODEL` in `backend/adapters/embedder.py`) | `docs/07-embedding-model.md` |
 
 - Every path, name and number in a doc must exist and be current. A change to the catalogue, the embedding model or the benchmark re-runs `python -m scripts.evaluate_retrieval` and updates the quoted metrics.
-- Diagrams are Mermaid that GitHub renders, drawn vertically (`flowchart TB`, `sequenceDiagram`) and compact enough for an A4 page.
+- Diagrams are Mermaid that GitHub renders, drawn vertically (`flowchart TB`, `sequenceDiagram`) and compact enough for an A4 page. Check that each one renders before committing (node ids such as `call` are reserved).
+- The README's demo queries were verified live; a change to the prompt or the tools re-verifies them, which is a live (paid) run, so ask first.
 
 ## Workflow
 
