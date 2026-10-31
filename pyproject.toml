@@ -1,0 +1,35 @@
+[project]
+name = "movie-rs"
+version = "0.1.0"
+description = "MovieHarbor: an LLM-powered movie recommender (master thesis proof of concept)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "google-genai",
+    "numpy",
+    "openai",
+    "pandas",
+    "pydantic-settings",
+    "python-dotenv",
+    "requests",
+    "streamlit",
+]
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

@@ -1,5 +1,5 @@
-import os
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -170,13 +170,17 @@ def semantic_search(client: Any, movies: pd.DataFrame, query: str, top_k: int) -
     if not can_embed or movies.empty or "vector" not in movies.columns:
         return movies.head(top_k).copy()
 
-    query_response = client.models.embed_content(model=settings.google_embedding_model, contents=query)
+    query_response = client.models.embed_content(
+        model=settings.google_embedding_model, contents=query
+    )
     query_vector = np.asarray(query_response.embeddings[0].values, dtype=float)
     if query_vector.ndim != 1 or query_vector.size == 0:
         return movies.head(top_k).copy()
 
     vectors = movies["vector"].map(_embedding_array)
-    valid_mask = vectors.map(lambda vector: vector is not None and vector.shape == query_vector.shape)
+    valid_mask = vectors.map(
+        lambda vector: vector is not None and vector.shape == query_vector.shape
+    )
     if not valid_mask.any():
         st.info("No valid vectors matched the embedding shape. Falling back to top candidates.")
         return movies.head(top_k).copy()
@@ -374,11 +378,15 @@ def main() -> None:
             st.error("Відсутня залежність google-genai. Встановіть її для провайдера Google.")
             st.stop()
         if not google_api_key:
-            st.error("Ключ Google API не знайдено. Вкажіть GOOGLE_API_KEY (або GEMINI_API_KEY / AISTUDIO_API).")
+            st.error(
+                "Ключ Google API не знайдено. Вкажіть GOOGLE_API_KEY (або GEMINI_API_KEY / AISTUDIO_API)."
+            )
             st.stop()
         google_client = genai.Client(api_key=google_api_key)
     else:
-        local_client = create_local_client(base_url=settings.lmstudio_base_url, api_key=settings.lmstudio_api_key)
+        local_client = create_local_client(
+            base_url=settings.lmstudio_base_url, api_key=settings.lmstudio_api_key
+        )
 
     movies = load_movies(settings.data_path)
     genres = genre_options(movies)
@@ -408,7 +416,9 @@ def main() -> None:
     st.sidebar.markdown("Вкажіть ваші дані та вподобання:")
     if not os.getenv("TMDB_API_KEY"):
         st.sidebar.warning("TMDB_API_KEY не знайдено. Пошук трейлерів вимкнено.")
-    st.session_state["show_logs"] = st.sidebar.toggle("Показувати логи роботи агента (демо)", value=True)
+    st.session_state["show_logs"] = st.sidebar.toggle(
+        "Показувати логи роботи агента (демо)", value=True
+    )
     age = st.sidebar.slider("Ваш вік", 1, 100, 25)
     gender = st.sidebar.radio("Ваша стать", ("Чоловік", "Жінка", "Інше"))
     genre = st.sidebar.selectbox("Улюблений жанр", genres)
@@ -426,7 +436,9 @@ def main() -> None:
         return
 
     with st.spinner("Виконую семантичний пошук..."):
-        candidates = semantic_search(google_client, genre_filtered, query, top_k=settings.max_context_rows)
+        candidates = semantic_search(
+            google_client, genre_filtered, query, top_k=settings.max_context_rows
+        )
         context = build_context(candidates)
 
     tool_enabled = settings.llm_provider in {"google", "lmstudio"}
@@ -502,4 +514,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
