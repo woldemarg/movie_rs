@@ -98,3 +98,54 @@ def test_a_tool_that_is_not_offered_cannot_be_called(movies):
 
     assert result == {"error": "unknown tool 'show_trailer'"}
     assert state.trailer is None
+
+
+def test_recommend_with_only_unsearched_ids_is_an_error_and_keeps_the_turn_open(toolbox):
+    state = ToolState(genre=None)
+
+    result = run(
+        toolbox, state, "recommend", reply="Ось.", picks=[{"movie_id": 2, "why": "моторошно"}]
+    )
+
+    assert result["rejected"] == [2] and "error" in result
+    assert state.answer is None
+
+
+def test_recommend_with_no_picks_ends_the_turn(toolbox):
+    state = ToolState(genre=None)
+
+    assert (
+        run(toolbox, state, "recommend", reply="Я раджу лише фільми.", picks=[])["status"] == "ok"
+    )
+    assert state.answer.picks == ()
+
+
+def test_a_new_search_replaces_the_grounding_set(toolbox, monkeypatch):
+    monkeypatch.setattr("backend.core.tools.SEARCH_K", 1)
+    state = ToolState(genre=None)
+    run(toolbox, state, "search_movies", query="ghosts haunt an old family house")
+    assert set(state.candidates) == {2}
+
+    run(toolbox, state, "search_movies", query="strangers fall in love in paris")
+
+    assert set(state.candidates) == {4}
+    result = run(
+        toolbox, state, "recommend", reply="Ось.", picks=[{"movie_id": 2, "why": "моторошно"}]
+    )
+    assert result["rejected"] == [2]
+    assert state.answer is None
+
+
+def test_the_largest_valid_recommend_fits_the_default_token_budget():
+    from backend.core.tools import MAX_PICKS, Pick, RecommendArgs
+    from backend.settings import Settings
+
+    reply_max = RecommendArgs.model_fields["reply"].metadata[-1].max_length
+    why_max = Pick.model_fields["why"].metadata[-1].max_length
+    largest = RecommendArgs(
+        reply="ж" * reply_max,
+        picks=[Pick(movie_id=123456, why="ж" * why_max) for _ in range(MAX_PICKS)],
+    ).model_dump_json()
+
+    # Cyrillic averages above 2 characters per token; 2 keeps the bound conservative.
+    assert len(largest) / 2 <= Settings.model_fields["llm_max_tokens"].default

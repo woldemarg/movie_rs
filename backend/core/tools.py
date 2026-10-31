@@ -6,12 +6,13 @@ or TMDB, records the outcome in the turn's `ToolState` and returns the JSON the 
 
 | Tool            | The model uses it to                    | Effect on ToolState              |
 |-----------------|-----------------------------------------|----------------------------------|
-| search_movies   | retrieve candidates by a description    | adds hits to `candidates`        |
+| search_movies   | retrieve candidates by a description    | replaces `candidates` with hits  |
 | show_trailer    | show a trailer when words fall short    | sets `trailer`                   |
 | recommend       | give the final, structured answer       | sets `answer` (ends the turn)    |
+|                 |                                         | unless every pick is rejected    |
 
-Grounding: show_trailer and recommend accept only movies that search_movies returned in this
-turn, so the model cannot recommend a film outside the catalogue.
+Grounding: show_trailer and recommend accept only movies from the latest search_movies result,
+so the model cannot recommend a film outside the catalogue or outside the search it relies on.
 Spec: docs/03-llm-and-tool-calling.md.
 """
 
@@ -27,7 +28,7 @@ from pydantic import BaseModel, Field, ValidationError
 from backend.core.catalog import Catalog, Embed, Hit, Movie
 
 SEARCH_K = 12  # candidates per search; docs/06-evaluation.md measures Recall@12
-MAX_PICKS = 5
+MAX_PICKS = 5  # with the reply and why limits below, the largest recommend fits LLM_MAX_TOKENS
 OVERVIEW_CHARS = 300  # keeps 12 candidates around 1,500 prompt tokens
 
 FindTrailer = Callable[[int], str | None]
@@ -83,7 +84,7 @@ class Pick(BaseModel):
     movie_id: int = Field(description="id of a film from the search_movies results")
     why: str = Field(
         min_length=3,
-        max_length=600,
+        max_length=300,
         description="1-2 sentences, in the viewer's language: why the film suits the request.",
     )
 
@@ -91,7 +92,7 @@ class Pick(BaseModel):
 class RecommendArgs(BaseModel):
     reply: str = Field(
         min_length=1,
-        max_length=1500,
+        max_length=600,
         description="A short, lively introduction (1-3 sentences) in the viewer's language, "
         "without listing the films.",
     )
@@ -174,7 +175,9 @@ class Toolbox:
 
     def search_movies(self, args: SearchMoviesArgs, state: ToolState) -> tuple[dict, str]:
         hits = self.catalog.search(self.embed([args.query])[0], k=SEARCH_K, genre=state.genre)
-        state.candidates.update({hit.movie.id: hit for hit in hits})
+        state.candidates = {
+            hit.movie.id: hit for hit in hits
+        }  # the latest search grounds the answer
         return {"movies": [candidate(hit.movie) for hit in hits]}, f"знайдено {len(hits)} фільмів"
 
     def show_trailer(self, args: ShowTrailerArgs, state: ToolState) -> tuple[dict, str]:
@@ -198,6 +201,9 @@ class Toolbox:
                 rejected.append(pick.movie_id)
             else:
                 accepted[pick.movie_id] = Recommendation(hit.movie, pick.why)
+        if args.picks and not accepted:  # nothing grounded: the model must choose again
+            error = "none of the movie_ids are among the latest search results; choose from them"
+            return {"error": error, "rejected": rejected}, f"помилка: відхилено всі {len(rejected)}"
         state.answer = Answer(args.reply, tuple(accepted.values()))
         result = {"status": "ok", "accepted": list(accepted), "rejected": rejected}
         return result, f"прийнято {len(accepted)}, відхилено {len(rejected)}"

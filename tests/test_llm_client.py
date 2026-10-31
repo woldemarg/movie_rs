@@ -34,7 +34,7 @@ def test_sends_an_openai_tools_request_and_parses_tool_calls():
         return reply({"role": "assistant", "content": None, "tool_calls": [call]})
 
     order = {"provider": {"order": ["a", "b"]}}
-    turn = client(handler, api_key=SECRET, extra_body=order).complete(MESSAGES, TOOLS)
+    turn = client(handler, api_key=SECRET, extra_body=order).complete(MESSAGES, TOOLS, "required")
 
     request = seen[0]
     body = json.loads(request.content)
@@ -42,7 +42,7 @@ def test_sends_an_openai_tools_request_and_parses_tool_calls():
     assert request.headers["authorization"] == f"Bearer {SECRET}"
     assert body["model"] == "google/gemma"
     assert body["messages"] == MESSAGES and body["tools"] == TOOLS
-    assert body["tool_choice"] == "auto"
+    assert body["tool_choice"] == "required"
     assert (body["temperature"], body["max_tokens"]) == (0.7, 500)
     assert body["provider"] == {"order": ["a", "b"]}
     assert turn.content == ""
@@ -104,3 +104,12 @@ def test_network_failures_become_ukrainian_messages(exception, expected):
 
     with pytest.raises(LLMError, match=expected.replace("(", r"\(").replace(")", r"\)")):
         client(handler, api_key=SECRET).complete(MESSAGES, TOOLS)
+
+
+def test_tool_arguments_sent_as_a_json_object_are_normalised_to_text():
+    function = {"name": "search_movies", "arguments": {"query": "x"}}
+    message = {"role": "assistant", "tool_calls": [{"id": "c1", "function": function}]}
+
+    turn = client(lambda request: reply(message)).complete(MESSAGES, TOOLS)
+
+    assert turn.tool_calls[0].arguments == '{"query": "x"}'
