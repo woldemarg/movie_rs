@@ -31,7 +31,7 @@ flowchart TB
     sel --> txt --> emb --> npy
 ```
 
-Запуск: `python -m scripts.build_catalog`. Скрипт детермінований: той самий CSV і та сама модель дають той самий каталог.
+Запуск: `python -m scripts.build_catalog`. Скрипт детермінований: той самий CSV і та сама модель дають той самий каталог. Після нього `python -m scripts.refresh_posters` оновлює шляхи до постерів через TMDB API: шляхи зі зрізу 2017 року більше не відкриваються ([розділ 5.3](05-e2e-workflow.md#53-підготовка-даних-офлайн)).
 
 ### Правила відбору
 
@@ -58,12 +58,12 @@ $$
 
 | Файл | Вміст |
 |---|---|
-| `data/movies.json` | `embedding_model` (модель, якою зроблено вектори), `source`, `min_votes`, і список `movies`: `id`, `title`, `year`, `genres`, `rating` (WR, 2 знаки), `votes`, `overview`, `poster_path` |
+| `data/movies.json` | `embedding_model` (модель, якою зроблено вектори), `source`, `min_votes`, `posters_refreshed` (дата оновлення постерів) і список `movies`: `id`, `title`, `year`, `genres`, `rating` (WR, 2 знаки), `votes`, `overview`, `poster_path` |
 | `data/movie_vectors.npy` | матриця `float32` розміру 2 274 × 384. Рядок *i* — вектор фільму `movies[i]`, нормований до одиничної довжини |
 
 `Catalog.load` перевіряє, що кількість рядків матриці дорівнює кількості фільмів. Тест `test_shipped_catalogue_is_consistent` перевіряє цілісність каталогу в репозиторії: унікальні id, розмірність, одиничні норми, наявність постерів.
 
-Постер будується з `poster_path` без ключа API: `https://image.tmdb.org/t/p/w342{poster_path}`.
+Постер будується з `poster_path` без ключа API: `https://image.tmdb.org/t/p/w342{poster_path}`. Його завантажує браузер глядача безпосередньо з CDN TMDB.
 
 ## 2.4. Модель ембедінгів
 
@@ -127,6 +127,7 @@ flowchart TB
 | Файл | Роль |
 |---|---|
 | `scripts/build_catalog.py` | конвеєр побудови: відбір, зважений рейтинг, ембедінги, запис артефактів |
+| `scripts/refresh_posters.py` | актуальні шляхи до постерів із TMDB API |
 | `backend/core/catalog.py` | `Movie`, `Catalog`: завантаження, збереження, пошук |
 | `backend/adapters/embedder.py` | модель ембедінгів (fastembed) |
 | `tests/test_build_catalog.py`, `tests/test_catalog.py` | правила відбору, формула рейтингу, пошук, цілісність каталогу |
