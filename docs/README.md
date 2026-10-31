@@ -12,5 +12,7 @@
 8. [Ризики галюцинацій LLM](desc/08-hallucinations.md)
 9. [Вплив параметрів користувача на вибір](desc/09-selection-parameters.md)
 10. [Стратегія тестування](desc/10-testing.md)
+11. [Аналогічні системи та порівняння](desc/11-related-systems.md)
+12. [Вимоги до системи](desc/12-requirements.md)
 
 Діаграми — Mermaid. GitHub рендерить їх у переглядачі. Для тексту роботи їх можна експортувати у SVG ([Mermaid Live Editor](https://mermaid.live) або `mmdc`). Знімки екрана — у [`images/`](images/).
