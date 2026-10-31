@@ -20,6 +20,8 @@ log = logging.getLogger(__name__)
 
 CONNECT_TIMEOUT_S = 5.0  # a server that does not accept the connection by then is not running
 READY_TIMEOUT_S = 1.0  # the readiness check runs on every GET /api/config
+# ponytail: DNS is not bounded by it; a stopped `ollama` container costs ~4 s per check (measured).
+# A thread with a deadline if a stopped model server ever matters.
 
 
 class LLMError(Exception):
