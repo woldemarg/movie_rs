@@ -1,5 +1,5 @@
-# Only pyproject.toml, uv.lock, backend/, frontend/ and the built catalogue go into the image.
-# .env stays out: secrets reach the container as environment variables (compose.yaml).
+# The backend image is built from the repository root (backend/Dockerfile); the frontend image uses
+# frontend/ as its own context. .env stays out: secrets reach the containers as environment variables.
 .env
 .git
 .github
@@ -7,11 +7,11 @@
 .venv
 .pytest_tmp
 **/__pycache__
+frontend
 models/ollama
-data/raw
 data/eval
+data/*.tmp
 docs
 notebooks
-scripts
 tests
 *.md

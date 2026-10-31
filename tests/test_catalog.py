@@ -46,7 +46,7 @@ def test_catalogue_rejects_vectors_not_aligned_with_movies(movies):
         Catalog(tuple(movies), np.zeros((2, 3), dtype=np.float32), "fake")
 
 
-def test_shipped_catalogue_is_consistent():
+def test_built_catalogue_is_consistent():
     catalog = Catalog.load(SHIPPED_DATA)
     ids = [movie.id for movie in catalog.movies]
 

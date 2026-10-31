@@ -1,4 +1,5 @@
-# MovieHarbor: the backend (FastAPI) with the web UI it serves. See compose.yaml.
+# MovieHarbor backend: the HTTP API, the agent, the embedding model and the catalogue.
+# Built from the repository root (compose.yaml: context ., dockerfile backend/Dockerfile).
 FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /bin/uv
@@ -24,8 +25,9 @@ COPY --chown=app models/embeddings models/embeddings
 RUN python -m backend.adapters.embedder
 ENV HF_HUB_OFFLINE=1
 
-COPY --chown=app frontend frontend
-COPY --chown=app data/movies.json data/movie_vectors.npy data/
+# data/ is mounted from the project (compose.yaml): the first start builds the catalogue from
+# data/raw into it, once; later starts find it there (scripts/prepare_data.py does nothing then).
+COPY --chown=app scripts scripts
 
 EXPOSE 8000
-CMD ["python", "-m", "backend"]
+CMD ["sh", "-c", "python -m scripts.prepare_data && exec python -m backend"]

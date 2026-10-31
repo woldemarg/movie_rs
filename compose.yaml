@@ -1,46 +1,69 @@
-# MovieHarbor in containers (docs/01-overview.md §1.8).
+# MovieHarbor in containers, local-first (docs/01-overview.md §1.8).
 #
-#   docker compose up -d --build                    web app; the model via OpenRouter (.env)
-#   docker compose --profile local up -d --build    plus a local Gemma 4 in Ollama
-#   add -f compose.yaml -f compose.gpu.yaml         to run the local model on an NVIDIA GPU
+#   docker compose up -d --build                                       CPU (16 GB RAM recommended)
+#   docker compose -f compose.yaml -f compose.gpu.yaml up -d --build   local model on an NVIDIA GPU
+#                                                                      (needs the NVIDIA Container Toolkit)
 #
-# Open http://127.0.0.1:8000. Keys come from .env (template: .env.sample).
+# Open http://127.0.0.1:8000 (the API alone: http://127.0.0.1:8001/docs). The local Gemma 4 is the
+# default model source; OpenRouter is the alternative once .env holds LLM_API_KEY (.env.sample).
+# A first run on a fresh clone builds the catalogue into data/ and fetches the model, both once.
 name: movieharbor
 
 services:
-  app:
-    build: .
-    image: movieharbor:latest
+  frontend:
+    # The static UI (nginx), an autonomous service: it proxies /api/ to the backend, resolving it
+    # per request, so it starts and serves the page whether or not the backend is up.
+    build: ./frontend
+    image: movieharbor-frontend:latest
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8000:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: movieharbor-backend:latest
+    ports:
+      - "127.0.0.1:8001:8000"
     env_file:
       - path: .env
         required: false
     environment:
-      # "Local model" in the UI means the ollama service below.
+      # "Local model" in the UI is the ollama service below.
       LOCAL_LLM_BASE_URL: http://ollama:11434/v1
       LOCAL_LLM_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
+      LLM_TIMEOUT_S: "300" # one completion of a local model on a CPU can take minutes
+    volumes:
+      - ./data:/app/data # the catalogue: built here once from data/raw, then reused
     depends_on:
-      ollama-pull:
-        condition: service_completed_successfully
-        required: false # only with --profile local
+      # Up as soon as the model server is: OpenRouter works while ollama-init still fetches weights.
+      ollama:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/config', timeout=5)"]
       interval: 10s
       timeout: 6s
-      start_period: 30s
+      start_period: 600s # a fresh clone builds the catalogue at the first start (~3 min)
       retries: 3
     restart: unless-stopped
 
   ollama:
-    profiles: [local]
     image: ollama/ollama:0.40.13
     environment:
       # The agent's prompt, 12 candidates and tool results outgrow Ollama's default window,
       # and Ollama truncates silently.
       OLLAMA_CONTEXT_LENGTH: "8192"
+      OLLAMA_KEEP_ALIVE: "-1" # keep the model loaded between requests
     volumes:
-      - ./models/ollama:/root/.ollama # the project cache: weights download once, survive rebuilds
+      # A named volume, not the project folder: Ollama memory-maps the weights, and mmap through
+      # the Windows file share is too slow to load 5.5 GB within Ollama's 5-minute limit.
+      - ollama:/root/.ollama
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
@@ -48,13 +71,27 @@ services:
       retries: 6
     restart: unless-stopped
 
-  ollama-pull:
-    # One-shot: downloads the model into models/ollama (a no-op once it is there), then exits.
-    profiles: [local]
+  ollama-init:
+    # One-shot: the weights come from the project cache models/ollama (downloaded once), are pulled
+    # only if missing, are copied back so the cache stays complete, and the model is warmed up.
     image: ollama/ollama:0.40.13
     environment:
       OLLAMA_HOST: ollama:11434
-    command: ["pull", "${OLLAMA_MODEL:-gemma4:e4b}"]
+      MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
+    volumes:
+      - ollama:/root/.ollama
+      - ./models/ollama:/cache
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        if [ -d /cache/models ]; then cp -r --update=none /cache/models/. /root/.ollama/models/; fi
+        ollama show "$$MODEL" > /dev/null 2>&1 || ollama pull "$$MODEL"
+        mkdir -p /cache/models && cp -r --update=none /root/.ollama/models/. /cache/models/
+        ollama ps | grep -q "$$MODEL" || ollama run "$$MODEL" "hi" > /dev/null # warm up once
     depends_on:
       ollama:
         condition: service_healthy
+
+volumes:
+  ollama:

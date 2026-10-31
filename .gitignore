@@ -213,3 +213,8 @@ models/*/*
 
 # pytest basetemp (pyproject.toml)
 .pytest_tmp/
+
+# The catalogue is generated from data/raw (python -m scripts.prepare_data)
+data/movies.json
+data/movie_vectors.npy
+data/*.tmp

@@ -22,10 +22,10 @@ class Settings(BaseSettings):
         env_file=ROOT / ".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    # Local model: any OpenAI-compatible server (LM Studio, Ollama, llama.cpp).
-    local_llm_base_url: str = "http://127.0.0.1:1234/v1"
-    local_llm_model: str = "google/gemma-3-12b"
-    # External API: OpenRouter.
+    # Local model, the default source: any OpenAI-compatible server; Ollama with Gemma 4 by default.
+    local_llm_base_url: str = "http://127.0.0.1:11434/v1"
+    local_llm_model: str = "gemma4:e4b"
+    # External API, the alternative: OpenRouter.
     llm_base_url: str = "https://openrouter.ai/api/v1"
     llm_model: str = "google/gemma-4-26b-a4b-it"
     llm_api_key: SecretStr = SecretStr("")
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # Trailers (optional).
     tmdb_api_key: SecretStr = SecretStr("")
     tmdb_base_url: str = "https://api.themoviedb.org/3"
-    # Server: loopback by default; the container sets HOST=0.0.0.0 (compose.yaml).
+    # Server: loopback by default; the container sets HOST=0.0.0.0 (backend/Dockerfile).
     host: str = "127.0.0.1"
     port: int = 8000
 
