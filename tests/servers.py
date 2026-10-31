@@ -19,6 +19,11 @@ def stub_app() -> FastAPI:
     app = FastAPI()
     app.state.requests = []
     app.state.fail_next = False  # set True to make the next completion a 500, once
+    app.state.models = ["stub-local", "stub-remote"]  # what GET /v1/models lists
+
+    @app.get("/v1/models")
+    def models() -> dict:
+        return {"object": "list", "data": [{"id": m, "object": "model"} for m in app.state.models]}
 
     @app.post("/v1/chat/completions")
     async def chat(request: Request) -> JSONResponse:

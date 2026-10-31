@@ -10,7 +10,7 @@ MovieHarbor is a master-thesis proof of concept: an LLM-powered movie recommende
 python scripts/check.py
 ```
 
-The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every change to Python, `pyproject.toml` or `uv.lock` ends with it passing; CI runs the same script.
+The gate is `ruff check` + `ruff format --check` + the whole pytest suite; before the tests it builds the catalogue in `data/` if it is missing (`python -m scripts.prepare_data`, ~3 min once). Every change to Python, `pyproject.toml` or `uv.lock` ends with it passing; CI runs the same script.
 
 - Do not silence it (`# noqa`, new ruff ignores, skipped or loosened tests). Fix the cause.
 - If a stage cannot run, say which one and why. Never imply it passed.
@@ -78,7 +78,7 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 
 - Every path, name and number in a doc must exist and be current. A change to the catalogue, the embedding model or the benchmark re-runs `python -m scripts.evaluate_retrieval` and updates the quoted metrics.
 - Diagrams are Mermaid that GitHub renders, drawn vertically (`flowchart TB`, `sequenceDiagram`) and compact enough for an A4 page. Check that each one renders before committing (node ids such as `call` are reserved).
-- The README's demo queries were verified live; a change to the prompt or the tools re-verifies them, which is a live (paid) run, so ask first.
+- The README's demo queries were verified live on the Compose stack with the local `gemma4:e4b`; a change to the prompt or the tools re-verifies them there (free). An OpenRouter comparison is a paid run, so ask first.
 
 ## Workflow
 

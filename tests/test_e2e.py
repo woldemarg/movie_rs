@@ -166,3 +166,25 @@ def test_an_unexpected_answer_body_is_reported_as_such_not_as_a_lost_connection(
 
     expect(page.locator(".msg.error")).to_contain_text("неочікуваному форматі")
     expect(page.locator(".msg.error")).not_to_contain_text("Немає зв'язку")
+
+
+def test_a_local_model_still_downloading_disables_asking_until_it_is_ready(browser, app_url):
+    def local_not_ready(route) -> None:
+        response = route.fetch()
+        config = response.json()
+        config["providers"] = [{**p, "ready": False} for p in config["providers"]]
+        route.fulfill(response=response, json=config)
+
+    page = browser.new_page()
+    page.route(LOCAL_ONLY, lambda route: route.abort())
+    page.route("**/api/config", local_not_ready)
+
+    page.goto(app_url)
+
+    expect(page.locator(".msg.error")).to_contain_text("ще завантажується")
+    expect(page.locator("#send")).to_be_disabled()
+    page.unroute("**/api/config")  # the download has finished
+    expect(page.locator(".msg.error")).to_have_count(0, timeout=10_000)
+    expect(page.locator("#send")).to_be_enabled()
+    expect(page.locator('[data-provider="local"]')).to_have_attribute("aria-checked", "true")
+    page.close()

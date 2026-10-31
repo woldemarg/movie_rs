@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # Generation, shared by both sources.
     llm_temperature: float = 0.7
     llm_max_tokens: int = 1500
-    llm_timeout_s: float = 60.0
+    llm_timeout_s: float = 300.0  # a local model on a CPU can take minutes
     # Trailers (optional).
     tmdb_api_key: SecretStr = SecretStr("")
     tmdb_base_url: str = "https://api.themoviedb.org/3"

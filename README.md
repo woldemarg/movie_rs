@@ -145,7 +145,7 @@ notebooks/          ноутбук, з якого почався проєкт (�
 
 ```bash
 uv run playwright install chromium   # один раз, для E2E-тестів
-uv run python scripts/check.py       # ruff (зокрема складність ≤ 10) + усі тести
+uv run python scripts/check.py       # ruff (зокрема складність ≤ 10), каталог (якщо немає, ≈ 3 хв), усі тести
 ```
 
 - **Модульні тести:** каталог, побудова даних, метрики, інструменти, агент, клієнт LLM, TMDB, налаштування.
