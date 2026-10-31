@@ -20,11 +20,15 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 
 | Path | Role |
 |---|---|
-| `movieharbor.py`, `config.py`, `prompts.py`, `styles.css` | the Streamlit prototype (being replaced) |
-| `movies.pkl`, `movies_metadata.csv` | the prototype's catalogue and its raw source |
-| `Chapter 7 - Building recommendation systems with LLMs.ipynb` | the notebook the project started from; reference only |
-| `tests/` | pytest suite |
-| `scripts/check.py` | the gate (Rule 0) |
+| `backend/core/` | domain logic: `catalog` (movies, semantic search) |
+| `backend/adapters/` | I/O helpers behind the core: `embedder` (fastembed) |
+| `movieharbor.py`, `config.py`, `prompts.py`, `styles.css`, `movies.pkl` | the Streamlit prototype (being replaced) |
+| `data/` | `raw/movies_metadata.csv` (the public source), `movies.json` + `movie_vectors.npy` (the built catalogue), `eval/` (the retrieval benchmark) |
+| `scripts/` | `check.py` (the gate), `build_catalog.py`, `evaluate_retrieval.py` |
+| `docs/` | the specification, one file per concern |
+| `notebooks/` | the notebook the project started from; reference only |
+| `tests/` | pytest suite; `doubles.py` holds the deterministic fakes (embedder) |
+| `models/` | embedding-model cache, gitignored |
 | `pyproject.toml`, `uv.lock`, `.python-version` | dependencies (exact versions in the lock), tool config, Python 3.12 |
 
 ## Boundaries
@@ -51,7 +55,15 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 ## Docs
 
 - `README.md` and `docs/` describe the current state in the present tense. History belongs in commits and PRs.
-- A change to behaviour updates the owning doc in the same change.
+- `docs/` is the specification the thesis builds on. A change to behaviour updates the owning spec in the same change:
+
+| Code | Spec |
+|---|---|
+| `scripts/build_catalog.py`, `backend/core/catalog.py`, `backend/adapters/embedder.py`, `data/` | `docs/02-data-and-embeddings.md` |
+| `scripts/evaluate_retrieval.py`, `data/eval/` | `docs/06-evaluation.md` |
+
+- Every path, name and number in a doc must exist and be current. A change to the catalogue, the embedding model or the benchmark re-runs `python -m scripts.evaluate_retrieval` and updates the quoted metrics.
+- Diagrams are Mermaid that GitHub renders, drawn vertically (`flowchart TB`, `sequenceDiagram`) and compact enough for an A4 page.
 
 ## Workflow
 
