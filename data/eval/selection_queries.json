@@ -1,0 +1,17 @@
+{
+ "about": "Open Ukrainian requests and the viewer parameters compared against them (docs/09-selection-parameters.md). Each query has the genre a viewer would plausibly pick for it; age 10 is the soft hint for a child.",
+ "configs": [
+  {"name": "open", "genre": false, "age": null},
+  {"name": "genre", "genre": true, "age": null},
+  {"name": "age 10", "genre": false, "age": 10},
+  {"name": "genre + age 10", "genre": true, "age": 10}
+ ],
+ "queries": [
+  {"text": "Щось на вечір з друзями, щоб посміятися й подумати", "genre": "Comedy"},
+  {"text": "Фільм про дружбу, яка долає всі випробування", "genre": "Animation"},
+  {"text": "Історія про виживання в дикій природі", "genre": "Adventure"},
+  {"text": "Напружена історія про таємницю, яку треба розгадати", "genre": "Mystery"},
+  {"text": "Фільм про космос і людську самотність", "genre": "Science Fiction"},
+  {"text": "Щось темне й атмосферне на ніч", "genre": "Horror"}
+ ]
+}
