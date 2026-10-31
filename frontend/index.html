@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>MovieHarbor</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">🎬</span>
+      <div>
+        <h1>MovieHarbor</h1>
+        <p class="brand-sub" id="catalog-info">Кінорадник на основі LLM</p>
+      </div>
+    </div>
+    <div class="source" role="radiogroup" aria-label="Джерело моделі" id="source-switch"></div>
+  </header>
+
+  <main id="thread" class="thread" aria-live="polite">
+    <section class="welcome" id="welcome">
+      <h2>Що подивимось сьогодні?</h2>
+      <p>Опишіть настрій, сюжет або фільм, схожий на той, що вам сподобався, будь-якою мовою. Я знайду відповідні фільми в каталозі й поясню свій вибір.</p>
+      <div class="suggestions" id="suggestions"></div>
+      <p class="credits">Метадані, постери й трейлери — <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">The Movie Database (TMDB)</a>. Цей продукт використовує TMDB API, але не схвалений і не сертифікований TMDB.</p>
+    </section>
+  </main>
+
+  <footer class="composer">
+    <div class="filters">
+      <label class="field">
+        <span>Жанр</span>
+        <select id="genre"><option value="">Будь-який</option></select>
+      </label>
+      <label class="field">
+        <span>Вік</span>
+        <input id="age" type="number" min="1" max="120" inputmode="numeric" placeholder="—">
+      </label>
+      <label class="field">
+        <span>Стать</span>
+        <select id="gender">
+          <option value="">Не вказувати</option>
+          <option value="female">Жінка</option>
+          <option value="male">Чоловік</option>
+          <option value="other">Інше</option>
+        </select>
+      </label>
+      <button type="button" class="ghost" id="new-chat">Нова розмова</button>
+    </div>
+    <form id="ask-form" class="ask">
+      <label for="question" class="visually-hidden">Ваш запит</label>
+      <textarea id="question" rows="1" maxlength="4000" placeholder="Наприклад: щось атмосферне на кшталт «Того, хто біжить по лезу»" required></textarea>
+      <button type="submit" id="send" aria-label="Надіслати">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>
+      </button>
+    </form>
+  </footer>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

@@ -7,20 +7,14 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi",
     "fastembed",
-    "google-genai",
     "httpx",
     "numpy",
-    "openai",
-    "pandas",
     "pydantic-settings",
-    "python-dotenv",
-    "requests",
-    "streamlit",
     "uvicorn",
 ]
 
 [dependency-groups]
-dev = ["pytest", "ruff"]
+dev = ["playwright", "pytest", "ruff"]
 
 [tool.uv]
 package = false

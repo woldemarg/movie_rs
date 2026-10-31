@@ -2,35 +2,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.api import create_app
-from backend.settings import Settings
+from tests.conftest import stub_settings
 from tests.doubles import fake_embed
-from tests.servers import ServerThread, stub_app
 
 SECRET = "sk-or-secret-123"
 
 
-@pytest.fixture(scope="module")
-def stub():
-    app = stub_app()
-    with ServerThread(app) as server:
-        server.app = app
-        yield server
-
-
 def make_client(stub, **overrides) -> TestClient:
-    """The app wired to the stub server; never reads the developer's .env."""
-    settings = {
-        "local_llm_base_url": f"{stub.url}/v1",
-        "local_llm_model": "stub-local",
-        "llm_base_url": f"{stub.url}/v1",
-        "llm_model": "stub-remote",
-        "llm_api_key": "",
-        "tmdb_api_key": "tmdb-test",
-        "tmdb_base_url": f"{stub.url}/3",
-    }
-    return TestClient(
-        create_app(Settings(_env_file=None, **settings | overrides), embed=fake_embed)
-    )
+    return TestClient(create_app(stub_settings(stub, **overrides), embed=fake_embed))
 
 
 def ask(client: TestClient, text: str, provider: str = "local", **viewer) -> dict:
@@ -128,3 +107,13 @@ def test_invalid_requests_are_rejected_before_any_model_call(stub, body):
 
     assert response.status_code == 422
     assert len(stub.app.state.requests) == before
+
+
+def test_the_web_ui_is_served_at_the_root(stub):
+    client = make_client(stub)
+
+    page = client.get("/")
+
+    assert page.status_code == 200
+    assert '<script src="app.js"' in page.text
+    assert client.get("/app.js").status_code == 200
