@@ -55,3 +55,20 @@ def test_shipped_catalogue_is_consistent():
     assert catalog.vectors.shape == (len(ids), 384)
     np.testing.assert_allclose(np.linalg.norm(catalog.vectors, axis=1), 1.0, atol=1e-4)
     assert all(movie.genres and movie.overview and movie.poster_url for movie in catalog.movies)
+
+
+def test_an_interrupted_write_leaves_the_previous_file_intact(tmp_path):
+    from backend.core.catalog import replace_atomically
+
+    target = tmp_path / "movies.json"
+    target.write_text("previous", encoding="utf-8")
+
+    def crash_midway(file) -> None:
+        file.write(b"half a catal")
+        raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        replace_atomically(target, crash_midway)
+
+    assert target.read_text(encoding="utf-8") == "previous"
+    assert list(tmp_path.iterdir()) == [target]

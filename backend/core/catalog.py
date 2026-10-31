@@ -10,6 +10,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from functools import cached_property
 from pathlib import Path
+from typing import BinaryIO
 
 import numpy as np
 
@@ -76,7 +77,8 @@ class Catalog:
             "movies": [asdict(movie) for movie in self.movies],
         }
         write_catalog_json(data_dir / MOVIES_FILE, meta)
-        np.save(data_dir / VECTORS_FILE, self.vectors.astype(np.float32))
+        vectors = self.vectors.astype(np.float32)
+        replace_atomically(data_dir / VECTORS_FILE, lambda file: np.save(file, vectors))
 
     @cached_property
     def genres(self) -> list[str]:
@@ -101,4 +103,16 @@ class Catalog:
 
 def write_catalog_json(path: Path, meta: dict) -> None:
     """The one writer of movies.json, so every tool keeps the same diff-friendly format."""
-    path.write_text(json.dumps(meta, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    text = json.dumps(meta, ensure_ascii=False, indent=1) + "\n"
+    replace_atomically(path, lambda file: file.write(text.encode("utf-8")))
+
+
+def replace_atomically(path: Path, write: Callable[[BinaryIO], object]) -> None:
+    """Write a temporary sibling, then rename it over `path`: an interrupted write keeps the old file."""
+    temporary = path.with_name(path.name + ".tmp")
+    try:
+        with temporary.open("wb") as file:
+            write(file)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
