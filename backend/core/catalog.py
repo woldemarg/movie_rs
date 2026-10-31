@@ -75,8 +75,7 @@ class Catalog:
             **provenance,
             "movies": [asdict(movie) for movie in self.movies],
         }
-        text = json.dumps(meta, ensure_ascii=False, indent=1)
-        (data_dir / MOVIES_FILE).write_text(text + "\n", encoding="utf-8")
+        write_catalog_json(data_dir / MOVIES_FILE, meta)
         np.save(data_dir / VECTORS_FILE, self.vectors.astype(np.float32))
 
     @cached_property
@@ -98,3 +97,8 @@ class Catalog:
             scores = np.where(in_genre, scores, -np.inf)
         top = np.argsort(-scores, kind="stable")[:k]
         return [Hit(self.movies[i], float(scores[i])) for i in top if np.isfinite(scores[i])]
+
+
+def write_catalog_json(path: Path, meta: dict) -> None:
+    """The one writer of movies.json, so every tool keeps the same diff-friendly format."""
+    path.write_text(json.dumps(meta, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")

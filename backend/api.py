@@ -1,4 +1,4 @@
-"""HTTP API (FastAPI): the interface's only way into the recommender.
+"""HTTP API (FastAPI): the interface's only way into the recommender, plus the static web UI.
 
 Request bodies are parsed and validated here, at the boundary; the core receives typed values.
 Spec: docs/04-interface.md.
@@ -11,6 +11,7 @@ import time
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
 from backend.adapters.embedder import load_embedder
@@ -25,6 +26,7 @@ from backend.settings import ROOT, Provider, Settings
 log = logging.getLogger(__name__)
 
 DATA_DIR = ROOT / "data"
+FRONTEND_DIR = ROOT / "frontend"
 PROVIDER_LABELS: dict[Provider, str] = {"local": "Локальна модель", "openrouter": "OpenRouter"}
 
 
@@ -168,6 +170,7 @@ def create_app(settings: Settings | None = None, embed: Embed | None = None) -> 
             ),
         )
 
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
     return app
 
 

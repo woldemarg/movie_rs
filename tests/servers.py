@@ -12,17 +12,22 @@ import time
 
 import uvicorn
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 
 def stub_app() -> FastAPI:
     app = FastAPI()
     app.state.requests = []
+    app.state.fail_next = False  # set True to make the next completion a 500, once
 
     @app.post("/v1/chat/completions")
-    async def chat(request: Request) -> dict:
+    async def chat(request: Request) -> JSONResponse:
         body = await request.json()
         app.state.requests.append({"body": body, "auth": request.headers.get("authorization")})
-        return {"choices": [{"message": scripted_reply(body["messages"])}]}
+        if app.state.fail_next:
+            app.state.fail_next = False
+            return JSONResponse({"error": {"message": "stub overloaded"}}, status_code=500)
+        return JSONResponse({"choices": [{"message": scripted_reply(body["messages"])}]})
 
     @app.get("/3/movie/{movie_id}/videos")
     def videos(movie_id: int) -> dict:

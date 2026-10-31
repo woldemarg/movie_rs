@@ -23,9 +23,9 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 | `backend/api.py`, `backend/settings.py`, `backend/__main__.py` | the HTTP API (request/response models), settings and model-source profiles, `python -m backend` |
 | `backend/core/` | domain logic, no HTTP: `agent` (the LLM loop), `tools` (**tool calling**: schemas, handlers, grounding), `prompts`, `catalog` (movies, semantic search) |
 | `backend/adapters/` | I/O helpers behind the core: `llm` (OpenAI-compatible client), `tmdb` (trailers), `embedder` (fastembed) |
-| `movieharbor.py`, `config.py`, `prompts.py`, `styles.css`, `movies.pkl` | the Streamlit prototype (being replaced) |
+| `frontend/` | the web UI: `index.html`, `app.js`, `styles.css`; static, no build step, served by the backend |
 | `data/` | `raw/movies_metadata.csv` (the public source), `movies.json` + `movie_vectors.npy` (the built catalogue), `eval/` (the retrieval benchmark) |
-| `scripts/` | `check.py` (the gate), `build_catalog.py`, `evaluate_retrieval.py` |
+| `scripts/` | `check.py` (the gate), `build_catalog.py`, `refresh_posters.py`, `evaluate_retrieval.py` |
 | `docs/` | the specification, one file per concern |
 | `notebooks/` | the notebook the project started from; reference only |
 | `tests/` | pytest suite; `doubles.py` holds the deterministic fakes (embedder, scripted LLM, trailers), `servers.py` the local stub of the LLM and TMDB servers |
@@ -36,7 +36,7 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 ## Boundaries
 
 - **Secrets.** `.env` holds the user's keys. Never print, log, copy or commit its values; edit it only when asked. `.env.sample` is the template.
-- **Paid and external calls.** The LLM provider and TMDB accounts belong to the user. Tests never touch the network: the LLM and TMDB are local stubs. Make live calls only when the user asks.
+- **Paid and external calls.** The LLM provider and TMDB accounts belong to the user. Tests never touch the network: the LLM and TMDB are local stubs, and the e2e page may reach only 127.0.0.1. Make live calls only when the user asks.
 - **Data.** Only the public dataset ships in the repository. Its source and licence are documented next to it.
 - **Dependencies.** Add one only when the standard library or an installed package cannot do the job in a few lines; add it to `pyproject.toml`, then `uv lock`.
 
@@ -51,7 +51,7 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 
 ## Testing
 
-- Test behaviour through the public entry point (function, HTTP endpoint, page), not internals. A test that would still pass if the code returned nothing is not a test.
+- Test behaviour through the public entry point (function, HTTP endpoint, page), not internals. The e2e tests need Chromium (`playwright install chromium`); without it they skip, and a skip must be reported, never counted as a pass. A test that would still pass if the code returned nothing is not a test.
 - A bug fix starts with a test that fails for the reason you expect.
 - Order: the targeted test, then the gate.
 
@@ -62,8 +62,10 @@ The gate is `ruff check` + `ruff format --check` + the whole pytest suite. Every
 
 | Code | Spec |
 |---|---|
-| `scripts/build_catalog.py`, `backend/core/catalog.py`, `backend/adapters/embedder.py`, `data/` | `docs/02-data-and-embeddings.md` |
+| `scripts/build_catalog.py`, `scripts/refresh_posters.py`, `backend/core/catalog.py`, `backend/adapters/embedder.py`, `data/` | `docs/02-data-and-embeddings.md` |
 | `backend/core/agent.py`, `tools.py`, `prompts.py`, `backend/adapters/llm.py`, `tmdb.py`, `backend/settings.py`, `.env.sample` | `docs/03-llm-and-tool-calling.md` |
+| `frontend/`, `backend/api.py` | `docs/04-interface.md` |
+| the request's path across modules and external services, `tests/` (layers, stubs, e2e) | `docs/05-e2e-workflow.md` |
 | `scripts/evaluate_retrieval.py`, `data/eval/` | `docs/06-evaluation.md` |
 
 - Every path, name and number in a doc must exist and be current. A change to the catalogue, the embedding model or the benchmark re-runs `python -m scripts.evaluate_retrieval` and updates the quoted metrics.
