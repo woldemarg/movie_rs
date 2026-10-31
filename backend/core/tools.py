@@ -1,0 +1,267 @@
+"""Tool calling: the functions the LLM may call, their JSON schemas and their handlers.
+
+The agent (core/agent.py) offers `Toolbox.specs` with every LLM request. When the model answers
+with tool calls, `Toolbox.run` validates each call's arguments, executes it against the catalogue
+or TMDB, records the outcome in the turn's `ToolState` and returns the JSON the model reads next.
+
+| Tool            | The model uses it to                    | Effect on ToolState              |
+|-----------------|-----------------------------------------|----------------------------------|
+| search_movies   | retrieve candidates by a description    | adds hits to `candidates`        |
+| show_trailer    | show a trailer when words fall short    | sets `trailer`                   |
+| recommend       | give the final, structured answer       | sets `answer` (ends the turn)    |
+
+Grounding: show_trailer and recommend accept only movies that search_movies returned in this
+turn, so the model cannot recommend a film outside the catalogue.
+Spec: docs/03-llm-and-tool-calling.md.
+"""
+
+from __future__ import annotations
+
+import json
+import textwrap
+from collections.abc import Callable
+from dataclasses import dataclass, field
+
+from pydantic import BaseModel, Field, ValidationError
+
+from backend.core.catalog import Catalog, Embed, Hit, Movie
+
+SEARCH_K = 12  # candidates per search; docs/06-evaluation.md measures Recall@12
+MAX_PICKS = 5
+OVERVIEW_CHARS = 300  # keeps 12 candidates around 1,500 prompt tokens
+
+FindTrailer = Callable[[int], str | None]
+"""TMDB id -> YouTube key of the movie's trailer, or None (backend/adapters/tmdb.py)."""
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    id: str
+    name: str
+    arguments: str  # JSON text exactly as the model wrote it; the tool validates it
+
+
+@dataclass(frozen=True)
+class AssistantTurn:
+    content: str
+    tool_calls: tuple[ToolCall, ...]
+
+    def as_message(self) -> dict:
+        """The turn as an OpenAI chat message, to append to the conversation."""
+        message: dict = {"role": "assistant", "content": self.content}
+        if self.tool_calls:
+            message["tool_calls"] = [
+                {
+                    "id": c.id,
+                    "type": "function",
+                    "function": {"name": c.name, "arguments": c.arguments},
+                }
+                for c in self.tool_calls
+            ]
+        return message
+
+
+class SearchMoviesArgs(BaseModel):
+    query: str = Field(
+        min_length=2,
+        max_length=400,
+        description="English description of the wanted film: plot, themes, mood, style. "
+        "For 'like film X', describe X's key traits rather than only its title.",
+    )
+
+
+class ShowTrailerArgs(BaseModel):
+    movie_id: int = Field(description="id of a film from the search_movies results")
+    reason: str = Field(
+        min_length=3,
+        max_length=300,
+        description="One sentence, in the viewer's language: what exactly to watch for.",
+    )
+
+
+class Pick(BaseModel):
+    movie_id: int = Field(description="id of a film from the search_movies results")
+    why: str = Field(
+        min_length=3,
+        max_length=600,
+        description="1-2 sentences, in the viewer's language: why the film suits the request.",
+    )
+
+
+class RecommendArgs(BaseModel):
+    reply: str = Field(
+        min_length=1,
+        max_length=1500,
+        description="A short, lively introduction (1-3 sentences) in the viewer's language, "
+        "without listing the films.",
+    )
+    picks: list[Pick] = Field(
+        max_length=MAX_PICKS,
+        description="1-5 films, best first; empty if the request is not about films.",
+    )
+
+
+@dataclass(frozen=True)
+class Recommendation:
+    movie: Movie
+    why: str
+
+
+@dataclass(frozen=True)
+class Answer:
+    reply: str
+    picks: tuple[Recommendation, ...]
+
+
+@dataclass(frozen=True)
+class Trailer:
+    movie: Movie
+    youtube_key: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class Step:
+    """One executed tool call, for the trace the interface shows."""
+
+    tool: str
+    arguments: dict[str, object]
+    outcome: str  # short Ukrainian summary
+
+
+@dataclass
+class ToolState:
+    """What the tools gathered during one user turn; the agent turns it into the result."""
+
+    genre: str | None
+    candidates: dict[int, Hit] = field(default_factory=dict)  # the grounding set
+    trailer: Trailer | None = None
+    answer: Answer | None = None
+    steps: list[Step] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class Toolbox:
+    catalog: Catalog
+    embed: Embed
+    find_trailer: FindTrailer | None  # None when TMDB is not configured: no show_trailer
+
+    @property
+    def specs(self) -> list[dict]:
+        """The tool definitions sent to the model (OpenAI `tools` format)."""
+        return [
+            tool_spec(name, description, args_model)
+            for name, (description, args_model, _) in TOOLS.items()
+            if name != "show_trailer" or self.find_trailer
+        ]
+
+    def run(self, call: ToolCall, state: ToolState) -> str:
+        """Execute one tool call and return its JSON result for the model."""
+        if call.name not in TOOLS or (call.name == "show_trailer" and not self.find_trailer):
+            return self._fail(state, call, {}, f"unknown tool {call.name!r}")
+        _, args_model, handler = TOOLS[call.name]
+        try:
+            args = args_model.model_validate_json(call.arguments)
+        except ValidationError as exc:
+            problems = "; ".join(
+                f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors()
+            )
+            return self._fail(state, call, {}, f"invalid arguments: {problems}")
+        result, outcome = handler(self, args, state)
+        state.steps.append(Step(call.name, args.model_dump(), outcome))
+        return json.dumps(result, ensure_ascii=False)
+
+    def search_movies(self, args: SearchMoviesArgs, state: ToolState) -> tuple[dict, str]:
+        hits = self.catalog.search(self.embed([args.query])[0], k=SEARCH_K, genre=state.genre)
+        state.candidates.update({hit.movie.id: hit for hit in hits})
+        return {"movies": [candidate(hit.movie) for hit in hits]}, f"знайдено {len(hits)} фільмів"
+
+    def show_trailer(self, args: ShowTrailerArgs, state: ToolState) -> tuple[dict, str]:
+        hit = state.candidates.get(args.movie_id)
+        if hit is None:
+            return {
+                "error": "movie_id is not among the search results"
+            }, "помилка: фільм не з пошуку"
+        key = self.find_trailer(hit.movie.id) if self.find_trailer else None
+        if key is None:
+            return {"status": "not_found"}, f"трейлер «{hit.movie.title}» не знайдено"
+        state.trailer = Trailer(hit.movie, key, args.reason)
+        return {"status": "shown"}, f"трейлер «{hit.movie.title}» показано"
+
+    def recommend(self, args: RecommendArgs, state: ToolState) -> tuple[dict, str]:
+        accepted: dict[int, Recommendation] = {}
+        rejected: list[int] = []
+        for pick in args.picks:
+            hit = state.candidates.get(pick.movie_id)
+            if hit is None or pick.movie_id in accepted:
+                rejected.append(pick.movie_id)
+            else:
+                accepted[pick.movie_id] = Recommendation(hit.movie, pick.why)
+        state.answer = Answer(args.reply, tuple(accepted.values()))
+        result = {"status": "ok", "accepted": list(accepted), "rejected": rejected}
+        return result, f"прийнято {len(accepted)}, відхилено {len(rejected)}"
+
+    @staticmethod
+    def _fail(state: ToolState, call: ToolCall, arguments: dict, error: str) -> str:
+        state.steps.append(Step(call.name, arguments, f"помилка: {error}"))
+        return json.dumps({"error": error})
+
+
+TOOLS: dict[str, tuple[str, type[BaseModel], Callable]] = {
+    "search_movies": (
+        "Semantic search over the film catalogue. Returns up to 12 candidates "
+        "(id, title, year, genres, rating, overview).",
+        SearchMoviesArgs,
+        Toolbox.search_movies,
+    ),
+    "show_trailer": (
+        "Show the viewer the trailer of one candidate film, only when words cannot convey "
+        "its atmosphere.",
+        ShowTrailerArgs,
+        Toolbox.show_trailer,
+    ),
+    "recommend": (
+        "Give the final answer: a short introduction and the chosen films with reasons. "
+        "Call it exactly once, at the end.",
+        RecommendArgs,
+        Toolbox.recommend,
+    ),
+}
+
+
+def candidate(movie: Movie) -> dict[str, object]:
+    """A movie as the model sees it in search results."""
+    return {
+        "id": movie.id,
+        "title": movie.title,
+        "year": movie.year,
+        "genres": list(movie.genres),
+        "rating": movie.rating,
+        "overview": textwrap.shorten(movie.overview, OVERVIEW_CHARS, placeholder=" …"),
+    }
+
+
+def tool_spec(name: str, description: str, args_model: type[BaseModel]) -> dict:
+    """An OpenAI tool definition whose parameters are the pydantic model's JSON schema.
+
+    The same model validates the arguments, so schema and validation cannot drift apart.
+    `$ref`s are inlined and titles dropped: plain JSON Schema that every server accepts.
+    """
+    schema = args_model.model_json_schema()
+    definitions = schema.pop("$defs", {})
+
+    def inline(node: object) -> object:
+        if isinstance(node, dict):
+            if "$ref" in node:
+                return inline(definitions[node["$ref"].rsplit("/", 1)[-1]])
+            return {
+                k: inline(v) for k, v in node.items() if not (k == "title" and isinstance(v, str))
+            }
+        if isinstance(node, list):
+            return [inline(item) for item in node]
+        return node
+
+    return {
+        "type": "function",
+        "function": {"name": name, "description": description, "parameters": inline(schema)},
+    }

@@ -8,10 +8,13 @@
 
 ```bash
 uv sync
-uv run streamlit run movieharbor.py
+cp .env.sample .env        # заповніть LLM_API_KEY (OpenRouter) і, за бажання, TMDB_API_KEY
+uv run python -m backend   # API: http://127.0.0.1:8000/docs
 ```
 
-Налаштування читаються з `.env` у корені проєкту.
+Модель працює або локально (LM Studio, Ollama — будь-який OpenAI-сумісний сервер), або через OpenRouter (Gemma 4). Джерело обирається в кожному запиті. Змінні описано в `.env.sample` і в [розділі 3](docs/03-llm-and-tool-calling.md).
+
+Прототип на Streamlit (`uv run streamlit run movieharbor.py`) працює, доки його не замінить новий вебінтерфейс.
 
 ## Дані
 
@@ -27,6 +30,7 @@ uv run python -m scripts.evaluate_retrieval
 Специфікація проєкту — у [`docs/`](docs/):
 
 - [2. Дані та ембедінги](docs/02-data-and-embeddings.md)
+- [3. LLM і виклик інструментів](docs/03-llm-and-tool-calling.md)
 - [6. Оцінювання якості пошуку](docs/06-evaluation.md)
 
 ## Перевірка якості
