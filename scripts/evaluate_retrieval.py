@@ -12,10 +12,11 @@ from pathlib import Path
 
 from backend.adapters.embedder import load_embedder
 from backend.core.catalog import Catalog, Hit
+from backend.core.tools import SEARCH_K
 
 ROOT = Path(__file__).resolve().parents[1]
 BENCHMARK = ROOT / "data" / "eval" / "retrieval_queries.json"
-CUTOFFS = (1, 5, 12)  # 12 = the candidates one search hands to the LLM
+CUTOFFS = (1, 5, SEARCH_K)  # SEARCH_K: the candidates one search hands to the LLM
 QUERY_FORMS = {
     "title_uk": "назва українською",
     "description_uk": "опис українською",

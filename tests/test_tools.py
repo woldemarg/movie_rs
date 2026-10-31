@@ -87,3 +87,14 @@ def test_bad_calls_return_an_error_the_model_can_read(toolbox, name, arguments):
     assert "error" in result
     assert state.answer is None
     assert state.steps[0].outcome.startswith("помилка")
+
+
+def test_a_tool_that_is_not_offered_cannot_be_called(movies):
+    toolbox = Toolbox(Catalog.build(movies, fake_embed, "fake"), fake_embed, find_trailer=None)
+    state = ToolState(genre=None)
+    run(toolbox, state, "search_movies", query="ghosts")
+
+    result = run(toolbox, state, "show_trailer", movie_id=3, reason="look")
+
+    assert result == {"error": "unknown tool 'show_trailer'"}
+    assert state.trailer is None
