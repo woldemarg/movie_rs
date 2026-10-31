@@ -1,7 +1,7 @@
 """Build the catalogue (data/movies.json + data/movie_vectors.npy) from the raw dataset.
 
 Run from the repository root: `python -m scripts.build_catalog` (about 3 minutes on a CPU;
-the first run downloads the embedding model into models/embeddings/). Spec: docs/02-data-and-embeddings.md.
+the first run downloads the embedding model into models/embeddings/). Spec: docs/desc/02-data-and-embeddings.md.
 """
 
 import ast

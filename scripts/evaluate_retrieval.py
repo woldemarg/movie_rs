@@ -1,7 +1,7 @@
 """Measure retrieval quality on the curated benchmark (data/eval/retrieval_queries.json).
 
 Run from the repository root: `python -m scripts.evaluate_retrieval`. It prints the known-item and
-thematic tables and the query latency quoted in docs/06-evaluation.md (the spec of every metric below).
+thematic tables and the query latency quoted in docs/desc/06-evaluation.md (the spec of every metric below).
 """
 
 import json

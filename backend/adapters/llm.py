@@ -2,7 +2,7 @@
 
 LM Studio, Ollama, llama.cpp and OpenRouter all accept the same `POST {base_url}/chat/completions`
 with `tools`, so switching between a local model and the external API is only a different
-profile (URL, model, key). Spec: docs/03-llm-and-tool-calling.md.
+profile (URL, model, key). Spec: docs/desc/03-llm-and-tool-calling.md.
 """
 
 from __future__ import annotations

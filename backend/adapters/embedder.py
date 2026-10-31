@@ -1,6 +1,6 @@
 """Sentence embeddings with fastembed (ONNX on CPU, no torch).
 
-Spec: docs/02-data-and-embeddings.md.
+Spec: docs/desc/02-data-and-embeddings.md.
 """
 
 import threading

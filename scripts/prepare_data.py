@@ -3,7 +3,7 @@
 The catalogue (data/movies.json, data/movie_vectors.npy) is generated, not versioned: only the raw
 dataset lives in git. `python -m scripts.prepare_data` (run by the backend container before the API starts) builds it once
 and refreshes the posters when TMDB_API_KEY is set; afterwards it does nothing.
-Spec: docs/02-data-and-embeddings.md §2.2.
+Spec: docs/desc/02-data-and-embeddings.md §2.2.
 """
 
 from collections.abc import Callable

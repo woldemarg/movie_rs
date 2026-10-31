@@ -1,4 +1,4 @@
-# MovieHarbor in containers, local-first (docs/01-overview.md §1.8).
+# MovieHarbor in containers, local-first (docs/desc/01-overview.md §1.8).
 #
 #   docker compose up -d --build                                       CPU (16 GB RAM recommended)
 #   docker compose -f compose.yaml -f compose.gpu.yaml up -d --build   local model on an NVIDIA GPU
