@@ -117,3 +117,16 @@ def test_the_web_ui_is_served_at_the_root(stub):
     assert page.status_code == 200
     assert '<script src="app.js"' in page.text
     assert client.get("/app.js").status_code == 200
+
+
+def test_validation_errors_carry_one_ukrainian_message_naming_the_field(stub):
+    body = {
+        "provider": "local",
+        "messages": [{"role": "user", "content": "hi"}],
+        "viewer": {"age": 0},
+    }
+
+    detail = make_client(stub).post("/api/recommend", json=body).json()["detail"]
+
+    assert isinstance(detail, str)
+    assert detail.startswith("Некоректний запит") and "viewer.age" in detail

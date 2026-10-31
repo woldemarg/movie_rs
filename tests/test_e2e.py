@@ -129,3 +129,24 @@ def test_a_suggestion_starts_the_chat_and_new_chat_resets_it(page):
     page.get_by_role("button", name="Нова розмова").click()
     expect(page.locator("#welcome")).to_be_visible()
     expect(page.locator(".msg")).to_have_count(0)
+
+
+def test_a_broken_config_shows_an_error_and_disables_asking(browser, app_url):
+    page = browser.new_page()
+    page.route(LOCAL_ONLY, lambda route: route.abort())
+    page.route("**/api/config", lambda route: route.fulfill(status=500, body="{}"))
+
+    page.goto(app_url)
+
+    expect(page.locator(".msg.error")).to_contain_text("Не вдалося з'єднатися")
+    expect(page.locator("#send")).to_be_disabled()
+    page.close()
+
+
+def test_an_unexpected_answer_body_is_reported_as_such_not_as_a_lost_connection(page):
+    page.route("**/api/recommend", lambda route: route.fulfill(status=200, json={"reply": "x"}))
+
+    send(page, "space adventure")
+
+    expect(page.locator(".msg.error")).to_contain_text("неочікуваному форматі")
+    expect(page.locator(".msg.error")).not_to_contain_text("Немає зв'язку")
