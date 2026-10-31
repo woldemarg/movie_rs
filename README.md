@@ -13,6 +13,22 @@ uv run streamlit run movieharbor.py
 
 Налаштування читаються з `.env` у корені проєкту.
 
+## Дані
+
+Каталог — 2 274 фільми з відкритого набору The Movies Dataset (CC0) з багатомовними ембедінгами для семантичного пошуку. Він уже зібраний у `data/`. Перебудувати його (≈ 3 хв на CPU) і виміряти якість пошуку:
+
+```bash
+uv run python -m scripts.build_catalog
+uv run python -m scripts.evaluate_retrieval
+```
+
+## Документація
+
+Специфікація проєкту — у [`docs/`](docs/):
+
+- [2. Дані та ембедінги](docs/02-data-and-embeddings.md)
+- [6. Оцінювання якості пошуку](docs/06-evaluation.md)
+
 ## Перевірка якості
 
 ```bash

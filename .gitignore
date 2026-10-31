@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Embedding model cache (scripts/build_catalog.py, backend/adapters/embedder.py)
+models/
+
+# pytest basetemp (pyproject.toml)
+.pytest_tmp/
