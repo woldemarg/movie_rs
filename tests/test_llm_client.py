@@ -77,6 +77,7 @@ def test_local_server_gets_no_authorization_header_and_plain_answers_parse():
             httpx.Response(200, json={"error": {"message": "upstream overloaded"}}),
             "upstream overloaded",
         ),
+        (httpx.Response(502, text="<html>Bad gateway</html>"), "помилку 502."),
         (httpx.Response(200, text="<html>"), "неочікуваному форматі"),
         (httpx.Response(200, json={"choices": []}), "неочікуваному форматі"),
     ],

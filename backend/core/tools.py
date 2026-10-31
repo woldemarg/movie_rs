@@ -147,27 +147,28 @@ class Toolbox:
     find_trailer: FindTrailer | None  # None when TMDB is not configured: no show_trailer
 
     @property
+    def available(self) -> dict[str, Tool]:
+        """The tools this toolbox offers: show_trailer only when trailers are configured."""
+        return {t.name: t for t in TOOLS if t.name != "show_trailer" or self.find_trailer}
+
+    @property
     def specs(self) -> list[dict]:
         """The tool definitions sent to the model (OpenAI `tools` format)."""
-        return [
-            tool_spec(name, description, args_model)
-            for name, (description, args_model, _) in TOOLS.items()
-            if name != "show_trailer" or self.find_trailer
-        ]
+        return [tool.spec() for tool in self.available.values()]
 
     def run(self, call: ToolCall, state: ToolState) -> str:
         """Execute one tool call and return its JSON result for the model."""
-        if call.name not in TOOLS or (call.name == "show_trailer" and not self.find_trailer):
-            return self._fail(state, call, {}, f"unknown tool {call.name!r}")
-        _, args_model, handler = TOOLS[call.name]
+        tool = self.available.get(call.name)
+        if tool is None:
+            return self._fail(state, call, f"unknown tool {call.name!r}")
         try:
-            args = args_model.model_validate_json(call.arguments)
+            args = tool.args_model.model_validate_json(call.arguments)
         except ValidationError as exc:
             problems = "; ".join(
                 f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors()
             )
-            return self._fail(state, call, {}, f"invalid arguments: {problems}")
-        result, outcome = handler(self, args, state)
+            return self._fail(state, call, f"invalid arguments: {problems}")
+        result, outcome = tool.handler(self, args, state)
         state.steps.append(Step(call.name, args.model_dump(), outcome))
         return json.dumps(result, ensure_ascii=False)
 
@@ -182,7 +183,7 @@ class Toolbox:
             return {
                 "error": "movie_id is not among the search results"
             }, "помилка: фільм не з пошуку"
-        key = self.find_trailer(hit.movie.id) if self.find_trailer else None
+        key = self.find_trailer(hit.movie.id) if self.find_trailer else None  # offered only with it
         if key is None:
             return {"status": "not_found"}, f"трейлер «{hit.movie.title}» не знайдено"
         state.trailer = Trailer(hit.movie, key, args.reason)
@@ -202,31 +203,46 @@ class Toolbox:
         return result, f"прийнято {len(accepted)}, відхилено {len(rejected)}"
 
     @staticmethod
-    def _fail(state: ToolState, call: ToolCall, arguments: dict, error: str) -> str:
-        state.steps.append(Step(call.name, arguments, f"помилка: {error}"))
+    def _fail(state: ToolState, call: ToolCall, error: str) -> str:
+        state.steps.append(Step(call.name, {}, f"помилка: {error}"))
         return json.dumps({"error": error})
 
 
-TOOLS: dict[str, tuple[str, type[BaseModel], Callable]] = {
-    "search_movies": (
+@dataclass(frozen=True)
+class Tool:
+    name: str
+    description: str
+    args_model: type[BaseModel]
+    handler: Callable[[Toolbox, BaseModel, ToolState], tuple[dict, str]]
+
+    def spec(self) -> dict:
+        """The OpenAI tool definition; its parameters are the args model's JSON schema."""
+        return tool_spec(self.name, self.description, self.args_model)
+
+
+TOOLS = (
+    Tool(
+        "search_movies",
         "Semantic search over the film catalogue. Returns up to 12 candidates "
         "(id, title, year, genres, rating, overview).",
         SearchMoviesArgs,
         Toolbox.search_movies,
     ),
-    "show_trailer": (
+    Tool(
+        "show_trailer",
         "Show the viewer the trailer of one candidate film, only when words cannot convey "
         "its atmosphere.",
         ShowTrailerArgs,
         Toolbox.show_trailer,
     ),
-    "recommend": (
+    Tool(
+        "recommend",
         "Give the final answer: a short introduction and the chosen films with reasons. "
         "Call it exactly once, at the end.",
         RecommendArgs,
         Toolbox.recommend,
     ),
-}
+)
 
 
 def candidate(movie: Movie) -> dict[str, object]:
