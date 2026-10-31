@@ -161,7 +161,7 @@ uv run python scripts/check.py       # ruff (зокрема складність
 uv run python -m scripts.build_catalog        # ≈ 3 хв на CPU
 uv run python -m scripts.refresh_posters      # потрібен TMDB_API_KEY
 uv run python -m scripts.evaluate_retrieval   # таблиці розділу 6
-uv run python -m scripts.evaluate_selection   # розділ 9; потрібен запущений стек
+uv run python -m scripts.evaluate_selection --provider local   # розділ 9; потрібен запущений стек
 ```
 
 ## Дані й ліцензії
