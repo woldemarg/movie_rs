@@ -1,5 +1,6 @@
 """Шаблони промптів для MovieHarbor."""
 
+
 def build_recommendation_prompt(
     user_query: str,
     age: int,
