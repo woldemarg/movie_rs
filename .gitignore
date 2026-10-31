@@ -218,3 +218,6 @@ models/*/*
 data/movies.json
 data/movie_vectors.npy
 data/*.tmp
+
+# The thesis chapters (docs/desc follows their terminology); kept out of the public repository for now.
+docs/thesis/

@@ -4,7 +4,7 @@ One user turn = up to MAX_LLM_CALLS chat completions. The model sees the system 
 earlier conversation folded in) and the viewer's latest message; each completion requests tool
 calls, which are executed and appended. A turn ends in exactly one way: a `recommend` that the
 tools accept. Prose instead of tool calls makes the next completion require a tool; prose again is
-an error. Spec: docs/03-llm-and-tool-calling.md.
+an error. Spec: docs/desc/03-llm-and-tool-calling.md.
 """
 
 from __future__ import annotations

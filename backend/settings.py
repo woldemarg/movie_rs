@@ -1,6 +1,6 @@
 """Runtime settings from the environment and `.env` (template: `.env.sample`).
 
-Spec: docs/03-llm-and-tool-calling.md (model sources), docs/04-interface.md (server).
+Spec: docs/desc/03-llm-and-tool-calling.md (model sources), docs/desc/04-interface.md (server).
 """
 
 from __future__ import annotations

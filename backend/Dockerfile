@@ -19,7 +19,7 @@ RUN uv sync --locked --no-dev --no-install-project
 
 # The embedding model comes from the project cache (models/embeddings, filled once on the host by
 # `python -m backend.adapters.embedder`); the RUN only downloads it if that cache was empty. The
-# container then starts in seconds and needs no Hugging Face access (docs/01-overview.md §1.8).
+# container then starts in seconds and needs no Hugging Face access (docs/desc/01-overview.md §1.8).
 COPY --chown=app backend backend
 COPY --chown=app models/embeddings models/embeddings
 RUN python -m backend.adapters.embedder

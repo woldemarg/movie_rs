@@ -1,12 +1,12 @@
 """What the model is told: the system prompt, with the conversation so far folded into it.
 
-Written for a small local model first (Gemma 4 E4B in Ollama, docs/03-llm-and-tool-calling.md §3.10):
+Written for a small local model first (Gemma 4 E4B in Ollama, docs/desc/03-llm-and-tool-calling.md §3.10):
 a fixed procedure of numbered steps, one per tool, with concrete triggers instead of judgement calls,
 one structured final call, and the earlier turns as context in the system prompt rather than as
 assistant messages that a small model would imitate in prose.
 English, the language instruction-tuned models follow most reliably; the model answers, and writes
 its search query, in the language of the viewer's latest message: the multilingual embedding model
-matches it to the English catalogue (docs/07-embedding-model.md).
+matches it to the English catalogue (docs/desc/07-embedding-model.md).
 """
 
 from __future__ import annotations

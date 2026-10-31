@@ -3,7 +3,7 @@
 Request bodies are parsed and validated here, at the boundary; the core receives typed values.
 `/api/recommend/stream` reports the agent's steps while it works, which keeps a slow local model
 responsive in the interface. When frontend/ is present (local development) the API also serves it;
-in Docker the frontend is its own container. Spec: docs/04-interface.md.
+in Docker the frontend is its own container. Spec: docs/desc/04-interface.md.
 """
 
 from __future__ import annotations

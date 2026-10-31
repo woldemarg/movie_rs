@@ -2,7 +2,7 @@
 
 The 2017 dataset's poster paths no longer resolve (TMDB rotates its images), so after
 `python -m scripts.build_catalog` run `python -m scripts.refresh_posters` (needs TMDB_API_KEY;
-about 2,300 requests, under a minute). Spec: docs/02-data-and-embeddings.md.
+about 2,300 requests, under a minute). Spec: docs/desc/02-data-and-embeddings.md.
 """
 
 import json

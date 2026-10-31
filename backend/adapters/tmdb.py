@@ -1,7 +1,7 @@
 """Trailer lookup on TMDB, used by the show_trailer tool.
 
 The v3 API takes the key as a query parameter, so request URLs carry a secret: errors are
-logged by type only, never with the URL. Spec: docs/03-llm-and-tool-calling.md.
+logged by type only, never with the URL. Spec: docs/desc/03-llm-and-tool-calling.md.
 """
 
 from __future__ import annotations

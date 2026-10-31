@@ -1,4 +1,4 @@
-// MovieHarbor web UI: a chat over the recommender API. Spec: docs/04-interface.md.
+// MovieHarbor web UI: a chat over the recommender API. Spec: docs/desc/04-interface.md.
 // Every string from the API is rendered as text (never as HTML).
 
 const GENRES_UK = {

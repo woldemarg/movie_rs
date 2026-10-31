@@ -1,6 +1,6 @@
 """The movie catalogue: what the recommender may suggest, and semantic search over it.
 
-Spec: docs/02-data-and-embeddings.md.
+Spec: docs/desc/02-data-and-embeddings.md.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class Movie:
     title: str
     year: int | None
     genres: tuple[str, ...]
-    rating: float  # weighted rating, docs/02-data-and-embeddings.md
+    rating: float  # weighted rating, docs/desc/02-data-and-embeddings.md
     votes: int
     overview: str
     poster_path: str | None

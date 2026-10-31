@@ -15,8 +15,8 @@ or TMDB, records the outcome in the turn's `ToolState` and returns the JSON the 
 Grounding: show_trailer and recommend accept only movies from the latest search_movies result, so
 the model cannot recommend or show a film outside the catalogue or outside the search it relies on.
 show_trailer is offered only when TMDB is configured. Tuned for a small local model
-(docs/03-llm-and-tool-calling.md §3.10).
-Spec: docs/03-llm-and-tool-calling.md.
+(docs/desc/03-llm-and-tool-calling.md §3.10).
+Spec: docs/desc/03-llm-and-tool-calling.md.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from backend.core.catalog import Catalog, Embed, Hit, Movie
 
-SEARCH_K = 12  # candidates per search; docs/06-evaluation.md measures Recall@12
+SEARCH_K = 12  # candidates per search; docs/desc/06-evaluation.md measures Recall@12
 MAX_PICKS = 5  # with the reply and why limits below, the largest recommend fits LLM_MAX_TOKENS
 OVERVIEW_CHARS = 200  # keeps 12 candidates around 1,000 prompt tokens for a small model
 

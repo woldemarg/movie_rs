@@ -1,4 +1,4 @@
-"""The prompt's guardrails are requirements (docs/08-hallucinations.md): none may disappear."""
+"""The prompt's guardrails are requirements (docs/desc/08-hallucinations.md): none may disappear."""
 
 from backend.core.prompts import Viewer, build_system_prompt
 

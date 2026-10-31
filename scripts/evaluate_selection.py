@@ -9,7 +9,7 @@ analysis scores the picks' weighted ratings against the shortlist and against pl
 Run from the repository root with the stack up: `python -m scripts.evaluate_selection
 --provider local|openrouter` (`--retrieval-only` skips level 2, `--rescore` re-analyses the saved
 run without calling the model). Writes data/eval/selection_run_<provider>.json and prints the
-tables of docs/09-selection-parameters.md, which defines every metric.
+tables of docs/desc/09-selection-parameters.md, which defines every metric.
 """
 
 import argparse
@@ -202,7 +202,7 @@ def end_to_end_level(catalog: Catalog, embed, benchmark: dict, args) -> list[dic
 
 
 def summarise(catalog: Catalog, embed, runs: list[dict], configs: list[str]) -> list[dict]:
-    """Per configuration: means over requests and repeats (definitions: docs/09 §9.3)."""
+    """Per configuration: means over requests and repeats (definitions: docs/desc/09 §9.3)."""
     vectors = dict(zip((m.id for m in catalog.movies), catalog.vectors, strict=True))
     genres = {m.id: m.genres for m in catalog.movies}
     query_vectors = {text: embed([text])[0] for text in {r["query"] for r in runs}}
